@@ -6,24 +6,35 @@ from .config import Config
 
 
 class KernelNet1d(nn.Sequential):
-    """The network to learn a 1D blur kernel from 1D data.
+    """The network to learn a 1D blur point-spread function (PSF) from 1D data.
+
+    Attributes:
+        impulse (torch.Tensor): The impulse function to calculate the PSF.
 
     """
     def __init__(self):
         super().__init__()
-        config = Config()
+        self.register_buffer('impulse', self._get_impulse())
+        self._kernel = None
         in_ch = 1
-        for i, ks in enumerate(config.kn_kernel_sizes):
+        for i, ks in enumerate(Config().kn_kernel_sizes):
             out_ch = self._calc_out_ch(i)
             conv = self._create_conv(in_ch, out_ch, ks)
             self.add_module('conv%d' % i, conv)
             in_ch = out_ch
 
+    def _get_impulse(self):
+        """Returns the impulse function as the input."""
+        impulse_shape = 2 * self.calc_kernel_size() - 1
+        impulse = torch.zeros([1, 1, impulse_shape]).float()
+        impulse[:, :, impulse_shape // 2] = 1
+        return impulse
+
     def _calc_out_ch(self, i):
         """Calculates the number of output channels for a conv."""
         config = Config()
         if i < len(config.kn_kernel_sizes) - 1 :
-            return config.kn_num_channels 
+            return config.kn_num_channels
         else:
             return 1
 
@@ -40,9 +51,40 @@ class KernelNet1d(nn.Sequential):
         """
         return np.sum(np.array(Config().kn_kernel_sizes) - 1)
 
+    def calc_kernel_size(self):
+        """Calculates the size of the PSF according to the size of conv weights.
+
+        The equation is from
+        https://distill.pub/2019/computing-receptive-fields/
+
+        Returns:
+            int: The size of the PSF.
+
+        """
+        return self.calc_input_size_reduce() + 1
+
+    def calc_kernel(self):
+        """Calculates the current kernel.
+
+        Note:
+            Call :meth:`kernel` to return the calculated kernel.
+
+        Returns:
+            KernelNet1d: The instance itself.
+
+        """
+        with torch.no_grad():
+            self._kernel = self(self.impulse)
+        return self
+
+    @property
+    def kernel(self):
+        """Returns the current kernel."""
+        return self._kernel
+
 
 class KernelNet2d(KernelNet1d):
-    """The network to learn a 1D blur kernel from 2D data.
+    """The network to learn a 1D blur point-spread function (PSF) from 2D data.
 
     """
     def _create_conv(self, in_ch, out_ch, ks):
