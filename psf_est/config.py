@@ -25,3 +25,4 @@ class Config(Config_):
         self.add_config('lrd_num_convs', 5)
         self.add_config('lrd_num_channels', 64)
         self.add_config('lrelu_neg_slope', 0.2)
+        self.add_config('patch_size', (64, 64, 1))

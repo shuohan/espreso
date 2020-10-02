@@ -3,11 +3,10 @@
 """
 import torch
 import torch.nn.functional as F
+from collections.abc import Iterable
 
 from pytorch_trainer.train import Trainer, Validator, Evaluator
 from pytorch_trainer.utils import NamedData
-from sssrlib.patches import Patches
-from sssrlib.transform import create_rot_flip
 
 from .config import Config
 from .loss import GANLoss, SumLoss
@@ -34,11 +33,11 @@ class MixinHRtoLR:
 
     @property
     def num_batches(self):
-        return len(self.dataloader)
+        return len(self.hr_loader)
 
     @property
     def batch_size(self):
-        return self.dataloader.batch_size
+        return self.hr_loader.batch_size
 
     @property
     def batch_ind(self):
@@ -67,8 +66,16 @@ class MixinHRtoLR:
     def _create_aliasing(self, patches):
         """Creates aliasing on patches."""
         mode = 'linear' if patches.dim() == 3 else 'bilinear'
-        results = F.interpolate(patches, self.scale_factor, mode=mode)
+        scale_factor = self._create_downsample_scale_factor()
+        results = F.interpolate(patches, scale_factor), mode=mode)
         return results
+
+    def _create_downsample_scale_factor(self):
+        """Create downsampling factor from HR to LR."""
+        if not isinstance(self.scale_factor, Iterable):
+            return [1 / sf for sf in self.scale_factor]
+        else:
+            return 1 / self.scale_factor
 
     def __getattr__(self, name):
         stripped_name = name.strip('_')
@@ -100,23 +107,31 @@ class TrainerHRtoLR(MixinHRtoLR, Trainer):
             patches discriminator.
         kn_optim (torch.optim.Optimizer): The :attr:`kernel_net` optimizer.
         lrd_optim (torch.optim.Optimizer): The :attr:`lr_dics` optimizer.
-        dataloader (torch.nn.data.DataLoader): Yields HR and LR patches.
-        scale_factor (float): The upsampling scaling factor. It should be
-            greater than 1.
+        hr_loader (torch.nn.data.DataLoader): Yields high-resolution patches.
+        lr_loader (torch.nn.data.DataLoader): Yields low-resolution patches.
+        scale_factor (float or iterable[float]): The upsampling scaling factor.
+            It should be greater than 1.
     
     """
-    def __init__(self, kernel_net, lr_disc, kn_optim, lrd_optim, dataloader,
-                 scale_factor, *args, **kwargs):
+    def __init__(self, kernel_net, lr_disc, kn_optim, lrd_optim, hr_loader,
+                 lr_loader, scale_factor, *args, **kwargs):
         super().__init__(Config().num_epochs, *args, **kwargs)
         self.kernel_net = kernel_net
         self.lr_disc = lr_disc
         self.kn_optim = kn_optim
         self.lrd_optim = lrd_optim
-        self.dataloader = dataloader
+        self.hr_loader = hr_loader
+        self.lr_loader = lr_loader
+        self._check_data_loader_shapes()
         self.scale_factor = scale_factor
 
         self._gan_loss_func = GANLoss()
         self._sum_loss_func = SumLoss()
+
+    def _check_data_loader_shapes(self):
+        """Checks the shapes of :attr:`hr_loader` and :attr:`lr_loader`."""
+        assert len(self.hr_loader) == len(self.lr_loader)
+        assert self.hr_loader.batch_size == self.lr_loader.batch_size
 
     def get_model_state_dict(self):
         return {'kernel_net': self.kernel_net.state_dict()}
@@ -129,7 +144,8 @@ class TrainerHRtoLR(MixinHRtoLR, Trainer):
         self.notify_observers_on_train_start()
         for self._epoch_ind in range(self.num_epochs):
             self.notify_observers_on_epoch_start()
-            for self._batch_ind, batch in enumerate(self.dataloader):
+            for self._batch_ind, batch \
+                    in enumerate(zip(self.hr_loader, self.lr_loader)):
                 self.notify_observers_on_batch_start()
                 self._parse_batch(batch)
                 self._train_kernel_net()
