@@ -66,36 +66,26 @@ class MixinHRtoLR:
     def _create_aliasing(self, patches):
         """Creates aliasing on patches."""
         mode = 'linear' if patches.dim() == 3 else 'bilinear'
-        scale_factor = self._create_downsample_scale_factor()
-        results = F.interpolate(patches, scale_factor), mode=mode)
+        down_scale = [1 / self.scale_factor, 1]
+        up_scale = [self.scale_factor, 1]
+        results = F.interpolate(patches, scale_factor=down_scale, mode=mode)
+        results = F.interpolate(results, scale_factor=up_scale, mode=mode)
         return results
-
-    def _create_downsample_scale_factor(self):
-        """Create downsampling factor from HR to LR."""
-        if not isinstance(self.scale_factor, Iterable):
-            return [1 / sf for sf in self.scale_factor]
-        else:
-            return 1 / self.scale_factor
-
-    def __getattr__(self, name):
-        stripped_name = name.strip('_')
-        if 'loss' in name and hasattr(self, stripped_name):
-            return super().__getattr__(stripped_name).item()
-        else:
-            return super().__getattr__(name)
 
     def _parse_batch(self, batch):
         self._hr_names = batch[0].name
         self._hr = batch[0].data
+        self._hr_cuda = self._hr.cuda()
         self._lr_names = batch[1].name
         self._lr = batch[1].data
+        self._lr_cuda = self._lr.cuda()
 
     def _calc_reg(self):
         """Calculates kernel regularization."""
         kernel = self.kernel_net.calc_kernel()
-        self._sum_loss = self._sum_loss_func(kernel)
+        self.sum_loss = self._sum_loss_func(kernel)
         sum_loss_weight = Config().sum_loss_weight
-        return sum_loss_weight * self._sum_loss
+        return sum_loss_weight * self.sum_loss
 
 
 class TrainerHRtoLR(MixinHRtoLR, Trainer):
@@ -114,8 +104,8 @@ class TrainerHRtoLR(MixinHRtoLR, Trainer):
     
     """
     def __init__(self, kernel_net, lr_disc, kn_optim, lrd_optim, hr_loader,
-                 lr_loader, scale_factor, *args, **kwargs):
-        super().__init__(Config().num_epochs, *args, **kwargs)
+                 lr_loader):
+        super().__init__(Config().num_epochs)
         self.kernel_net = kernel_net
         self.lr_disc = lr_disc
         self.kn_optim = kn_optim
@@ -123,7 +113,7 @@ class TrainerHRtoLR(MixinHRtoLR, Trainer):
         self.hr_loader = hr_loader
         self.lr_loader = lr_loader
         self._check_data_loader_shapes()
-        self.scale_factor = scale_factor
+        self.scale_factor = lr_loader.dataset.scale_factor
 
         self._gan_loss_func = GANLoss()
         self._sum_loss_func = SumLoss()
@@ -160,9 +150,9 @@ class TrainerHRtoLR(MixinHRtoLR, Trainer):
         self._blur_cuda = self.kernel_net(self._hr_cuda)
         self._alias_cuda = self._create_aliasing(self._blur_cuda)
         lrd_pred_fake = self.lr_disc.forward(self._alias_cuda)
-        self._kn_gan_loss = self._gan_loss_func(lrd_pred_fake, True)
-        self._kn_tot_loss = self._kn_loss + self._calc_reg()
-        self._kn_tot_loss.backward()
+        self.kn_gan_loss = self._gan_loss_func(lrd_pred_fake, True)
+        self.kn_tot_loss = self.kn_gan_loss + self._calc_reg()
+        self.kn_tot_loss.backward()
         self.kn_optim.step()
 
     def _train_lr_disc(self):
@@ -172,6 +162,6 @@ class TrainerHRtoLR(MixinHRtoLR, Trainer):
         lrd_pred_fake = self.lr_disc(self._alias_cuda.detach())
         self._lrd_real_loss = self._gan_loss_func(lrd_pred_real, True)
         self._lrd_fake_loss = self._gan_loss_func(lrd_pred_fake, False)
-        self._lrd_tot_loss = self._lrd_real_loss + self._lrd_fake_loss
-        self._lrd_tot_loss.backward()
+        self.lrd_tot_loss = self._lrd_real_loss + self._lrd_fake_loss
+        self.lrd_tot_loss.backward()
         self.lrd_optim.step()

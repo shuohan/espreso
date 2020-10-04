@@ -75,7 +75,7 @@ class KernelNet1d(nn.Sequential):
         """
         with torch.no_grad():
             self._kernel = self(self.impulse)
-        return self
+        return self._kernel
 
     @property
     def kernel(self):
@@ -89,6 +89,10 @@ class KernelNet2d(KernelNet1d):
     """
     def _create_conv(self, in_ch, out_ch, ks):
         return nn.Conv2d(in_ch, out_ch, (ks, 1), bias=False)
+
+    def _get_impulse(self):
+        impulse = super()._get_impulse()[..., None]
+        return impulse
 
 
 class LowResDiscriminator1d(nn.Sequential):
