@@ -25,6 +25,7 @@ from sssrlib.transform import create_rot_flip
 from psf_est.config import Config
 from psf_est.train import TrainerHRtoLR
 from psf_est.network import KernelNet2d, LowResDiscriminator2d
+from psf_est.utils import pad_patch_size
 
 from pytorch_trainer.log import DataQueue, EpochPrinter
 
@@ -42,31 +43,20 @@ config = Config()
 for key, value in args.__dict__.items():
     if hasattr(config, key):
         setattr(config, key, value)
+print(config)
 
 kn = KernelNet2d().cuda()
 lrd = LowResDiscriminator2d().cuda()
 kn_optim = Adam(kn.parameters(), lr=5e-4)
 lrd_optim = Adam(lrd.parameters(), lr=5e-4)
 
-reduce = kn.calc_input_size_reduce() 
-hr_patch_size = [config.patch_size[0] + reduce,
-                 config.patch_size[1] + reduce, 1]
+hr_patch_size = pad_patch_size(config.patch_size, kn.calc_input_size_reduce())
 hr_patches = Patches(image, hr_patch_size)
-hr_weights = np.ones(len(hr_patches))
-hr_sampler = WeightedRandomSampler(hr_weights, config.batch_size)
-hr_loader = DataLoader(hr_patches, batch_size=config.batch_size,
-                       sampler=hr_sampler)
+hr_loader = hr_patches.get_dataloader(config.batch_size)
 
 lr_patches = Patches(image, config.patch_size, x=2, y=1, z=0,
                      scale_factor=config.scale_factor)
-lr_weights = np.ones(len(lr_patches))
-lr_sampler = WeightedRandomSampler(lr_weights, config.batch_size)
-lr_loader = DataLoader(lr_patches, batch_size=config.batch_size,
-                       sampler=lr_sampler)
-
-print(config)
-
-print(kn.calc_kernel().squeeze())
+lr_loader = lr_patches.get_dataloader(config.batch_size)
 
 trainer = TrainerHRtoLR(kn, lrd, kn_optim, lrd_optim, hr_loader, lr_loader)
 queue = DataQueue(['kn_gan_loss', 'sum_loss', 'kn_tot_loss', 'lrd_tot_loss'])
@@ -75,5 +65,3 @@ printer = EpochPrinter(print_sep=False)
 queue.register(printer)
 
 trainer.train()
-
-print(kn.calc_kernel().squeeze())
