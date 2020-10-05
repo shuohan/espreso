@@ -21,4 +21,4 @@ docker run --gpus device=1 --rm \
     --user $(id -u):$(id -g) \
     -e PYTHONPATH=$psf_est_dir:$sssrlib_dir:$proc_dir:$trainer_dir:$config_dir:$simu_dir \
     -w $psf_est_dir/scripts -t \
-    psf-est ./train2d.py -i $image -o $outdir
+    psf-est ./train2d.py -i $image -o $outdir -e 10

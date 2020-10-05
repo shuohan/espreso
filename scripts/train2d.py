@@ -28,10 +28,12 @@ from psf_est.network import KernelNet2d, LowResDiscriminator2d
 from psf_est.utils import pad_patch_size
 
 from pytorch_trainer.log import DataQueue, EpochPrinter
+from pytorch_trainer.save import ImageSaver
 
 
 args.output = Path(args.output)
 args.output.mkdir(parents=True, exist_ok=True)
+im_output = args.output.joinpath('image')
 
 obj = nib.load(args.input)
 image = obj.get_fdata(dtype=np.float32)
@@ -53,7 +55,6 @@ lrd_optim = Adam(lrd.parameters(), lr=5e-4)
 hr_patch_size = pad_patch_size(config.patch_size, kn.calc_input_size_reduce())
 hr_patches = Patches(image, hr_patch_size)
 hr_loader = hr_patches.get_dataloader(config.batch_size)
-
 lr_patches = Patches(image, config.patch_size, x=2, y=1, z=0,
                      scale_factor=config.scale_factor)
 lr_loader = lr_patches.get_dataloader(config.batch_size)
@@ -63,5 +64,8 @@ queue = DataQueue(['kn_gan_loss', 'sum_loss', 'kn_tot_loss', 'lrd_tot_loss'])
 trainer.register(queue)
 printer = EpochPrinter(print_sep=False)
 queue.register(printer)
+im_saver = ImageSaver(im_output, attrs=['lr', 'hr', 'blur', 'alias'],
+                      step=10, file_struct='epoch/sample', save_type='png')
+trainer.register(im_saver)
 
 trainer.train()
