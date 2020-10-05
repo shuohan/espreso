@@ -11,6 +11,8 @@ parser.add_argument('-s', '--scale-factor', default=None, type=float,
                     help='Super resolution scale factor.')
 parser.add_argument('-e', '--num-epochs', default=1000, type=int,
                     help='The number of epochs (iterations).')
+parser.add_argument('-iss', '--image-save-step', default=100, type=int,
+                    help='The image saving step.')
 args = parser.parse_args()
 
 
@@ -19,11 +21,12 @@ import numpy as np
 from pathlib import Path
 from torch.optim import Adam
 from torch.utils.data import DataLoader, WeightedRandomSampler                  
+import warnings
 
 from sssrlib.patches import Patches
 from sssrlib.transform import create_rot_flip
 from psf_est.config import Config
-from psf_est.train import TrainerHRtoLR
+from psf_est.train import TrainerHRtoLR, KernelSaver
 from psf_est.network import KernelNet2d, LowResDiscriminator2d
 from psf_est.utils import pad_patch_size
 
@@ -31,9 +34,12 @@ from pytorch_trainer.log import DataQueue, EpochPrinter
 from pytorch_trainer.save import ImageSaver
 
 
+warnings.filterwarnings("ignore")
+
 args.output = Path(args.output)
 args.output.mkdir(parents=True, exist_ok=True)
-im_output = args.output.joinpath('image')
+im_output = args.output.joinpath('patches')
+kernel_output = args.output.joinpath('kernel')
 
 obj = nib.load(args.input)
 image = obj.get_fdata(dtype=np.float32)
@@ -49,8 +55,8 @@ print(config)
 
 kn = KernelNet2d().cuda()
 lrd = LowResDiscriminator2d().cuda()
-kn_optim = Adam(kn.parameters(), lr=5e-4)
-lrd_optim = Adam(lrd.parameters(), lr=5e-4)
+kn_optim = Adam(kn.parameters(), lr=1e-5)
+lrd_optim = Adam(lrd.parameters(), lr=1e-5)
 
 hr_patch_size = pad_patch_size(config.patch_size, kn.calc_input_size_reduce())
 hr_patches = Patches(image, hr_patch_size)
@@ -65,7 +71,12 @@ trainer.register(queue)
 printer = EpochPrinter(print_sep=False)
 queue.register(printer)
 im_saver = ImageSaver(im_output, attrs=['lr', 'hr', 'blur', 'alias'],
-                      step=10, file_struct='epoch/sample', save_type='png')
+                      step=config.image_save_step, file_struct='epoch/sample',
+                      save_type='png', save_init=False)
+kernel_saver = KernelSaver(kernel_output, step=config.image_save_step,
+                           save_init=True)
 trainer.register(im_saver)
+trainer.register(kernel_saver)
+
 
 trainer.train()

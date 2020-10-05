@@ -4,12 +4,42 @@
 import torch
 import torch.nn.functional as F
 from collections.abc import Iterable
+from pathlib import Path
 
 from pytorch_trainer.train import Trainer, Validator, Evaluator
 from pytorch_trainer.utils import NamedData
+from pytorch_trainer.save import ThreadedSaver, ImageThread, SavePlot
 
 from .config import Config
 from .loss import GANLoss, SumLoss
+
+
+class KernelSaver(ThreadedSaver):
+    """Saves the kernel after each epoch.
+
+    """
+    def __init__(self, dirname, step=100, save_init=False):
+        super().__init__(dirname, save_init=save_init)
+        self.step = step
+        Path(self.dirname).mkdir(parents=True, exist_ok=True)
+
+    def _init_thread(self):
+        save_plot = SavePlot()
+        return ImageThread(save_plot, self.queue)
+
+    def _check_subject_type(self, subject):
+        assert isinstance(subject, TrainerHRtoLR)
+
+    def update_on_epoch_end(self):
+        if self.subject.epoch_ind % self.step == 0:
+            self._save()
+
+    def _save(self):
+        kernel = self.subject.kernel_net.kernel
+        pattern = 'epoch-%%0%dd' % len(str(self.subject.num_epochs))
+        pattern = str(Path(self.dirname, pattern))
+        filename = pattern % self.subject.epoch_ind
+        self.queue.put(NamedData(filename, kernel))
 
 
 class MixinHRtoLR:
@@ -101,7 +131,7 @@ class TrainerHRtoLR(MixinHRtoLR, Trainer):
         lr_loader (torch.nn.data.DataLoader): Yields low-resolution patches.
         scale_factor (float or iterable[float]): The upsampling scaling factor.
             It should be greater than 1.
-    
+
     """
     def __init__(self, kernel_net, lr_disc, kn_optim, lrd_optim, hr_loader,
                  lr_loader):

@@ -80,7 +80,9 @@ class KernelNet1d(nn.Sequential):
     @property
     def kernel(self):
         """Returns the current kernel."""
-        return self._kernel
+        if self._kernel is None:
+            self.calc_kernel()
+        return self._kernel.detach().cpu()
 
 
 class KernelNet2d(KernelNet1d):
