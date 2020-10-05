@@ -31,3 +31,4 @@ class Config(Config_):
         self.add_config('num_epochs', 1000)
         self.add_config('sum_loss_weight', 100)
         self.add_config('image_save_step', 100)
+        self.add_config('num_init_epochs', 100)

@@ -5,6 +5,7 @@ import torch
 import torch.nn.functional as F
 from collections.abc import Iterable
 from pathlib import Path
+from enum import Enum
 
 from pytorch_trainer.train import Trainer, Validator, Evaluator
 from pytorch_trainer.utils import NamedData
@@ -12,6 +13,41 @@ from pytorch_trainer.save import ThreadedSaver, ImageThread, SavePlot
 
 from .config import Config
 from .loss import GANLoss, SumLoss
+
+
+class InitKernelType(str, Enum):
+    """The type of kernel to initialize to.
+
+    Attributes:
+        IMPULSE (str): Initialize to an impulse function.
+        GAUSSIAN (str): Initialize to a Gaussian function.
+        RECT (str): Initialize to a rect function.
+        NONE (str): Do not initialize the kernel, i.e. the kernel is random.
+
+    """
+    IMPULSE = 'impulse'
+    GAUSSIAN = 'guassian'
+    RECT = 'rect'
+    NONE = 'none'
+
+
+def create_init_kernel(init_kernel_type, scale_factor, shape):
+    """Creates the kernel to initialize.
+
+    Args:
+        init_kernel_type (str or InitKernelType): The type of the
+            initialization.
+        scale_factor (float): The scale factor  (greater than 1).
+        shape (iterable[int]): The shape of the kernel.
+
+    """
+    init_kernel_type = InitKernelType(init_kernel_type)
+    if init_kernel_type is InitKernelType.IMPULSE:
+        kernel = torch.zeros(*shape, dtype=torch.float32)
+        kernel[:, :, shape[2]//2, ...] = 1
+    else:
+        raise NotImplementedError
+    return kernel
 
 
 class KernelSaver(ThreadedSaver):
@@ -89,6 +125,11 @@ class MixinHRtoLR:
         return self._blur_cuda.detach().cpu()
 
     @property
+    def ref(self):
+        """Returns the blurred patches with a reference kernel on CPU."""
+        return self._ref_cuda.detach().cpu()
+
+    @property
     def alias(self):
         """Returns the current estimated aliased patches on CPU."""
         return self._alias_cuda.detach().cpu()
@@ -125,6 +166,7 @@ class TrainerHRtoLR(MixinHRtoLR, Trainer):
         kernel_net (psf_est.network.KernelNet1d): The kernel estimation network.
         lr_disc (psf_est.network.LowResDiscriminator1d): The low-resolution
             patches discriminator.
+        init_optim (torch.optim.Optimizer): Used to initialize the kernel.
         kn_optim (torch.optim.Optimizer): The :attr:`kernel_net` optimizer.
         lrd_optim (torch.optim.Optimizer): The :attr:`lr_dics` optimizer.
         hr_loader (torch.nn.data.DataLoader): Yields high-resolution patches.
@@ -133,20 +175,23 @@ class TrainerHRtoLR(MixinHRtoLR, Trainer):
             It should be greater than 1.
 
     """
-    def __init__(self, kernel_net, lr_disc, kn_optim, lrd_optim, hr_loader,
-                 lr_loader):
+    def __init__(self, kernel_net, lr_disc, init_optim, kn_optim, lrd_optim,
+                 hr_loader, lr_loader, init_kernel_type='impulse'):
         super().__init__(Config().num_epochs)
         self.kernel_net = kernel_net
         self.lr_disc = lr_disc
+        self.init_optim = init_optim
         self.kn_optim = kn_optim
         self.lrd_optim = lrd_optim
         self.hr_loader = hr_loader
         self.lr_loader = lr_loader
+        self.init_kernel_type = init_kernel_type
         self._check_data_loader_shapes()
         self.scale_factor = lr_loader.dataset.scale_factor
 
         self._gan_loss_func = GANLoss()
         self._sum_loss_func = SumLoss()
+        self._init_loss_func = torch.nn.MSELoss()
 
     def _check_data_loader_shapes(self):
         """Checks the shapes of :attr:`hr_loader` and :attr:`lr_loader`."""
@@ -159,8 +204,16 @@ class TrainerHRtoLR(MixinHRtoLR, Trainer):
     def get_optim_state_dict(self):
         return {'kn_optim': self.kn_optim.state_dict()}
 
-    def train(self):
-        """Trains the algorithm."""
+    def train(self, init_kernel=False):
+        """Trains the algorithm.
+
+        """
+        if init_kernel:
+            self._num_epochs = Config().num_init_epochs
+        else:
+            self._num_epochs = Config().num_epochs
+
+        self._epoch_ind = -1
         self.notify_observers_on_train_start()
         for self._epoch_ind in range(self.num_epochs):
             self.notify_observers_on_epoch_start()
@@ -168,18 +221,41 @@ class TrainerHRtoLR(MixinHRtoLR, Trainer):
                     in enumerate(zip(self.hr_loader, self.lr_loader)):
                 self.notify_observers_on_batch_start()
                 self._parse_batch(batch)
-                self._train_kernel_net()
-                self._train_lr_disc()
+                self._init_kernel() if init_kernel else self._train()
                 self.notify_observers_on_batch_end()
             self.notify_observers_on_epoch_end()
         self.notify_observers_on_train_end()
+
+    def _init_kernel(self):
+        """Initializes the kernel."""
+        ref_kernel = self._create_init_kernel()
+        self.init_optim.zero_grad()
+        self._blur_cuda = self.kernel_net(self._hr_cuda)
+        self._ref_cuda = F.conv2d(self._hr_cuda, ref_kernel)
+        self.init_loss = self._init_loss_func(self._blur_cuda, self._ref_cuda)
+        self.init_loss.backward()
+        self.init_optim.step()
+        self.kernel_net.calc_kernel()
+
+    def _create_init_kernel(self):
+        """Creates the kernel to initialize to."""
+        shape = list(self.kernel_net.impulse.shape)
+        shape[2] = self.kernel_net.calc_kernel_size()
+        kernel_type = self.init_kernel_type
+        kernel = create_init_kernel(kernel_type, self.scale_factor, shape)
+        return kernel.cuda()
+
+    def _train(self):
+        """Trains the kernel with GAN."""
+        self._train_kernel_net()
+        self._train_lr_disc()
 
     def _train_kernel_net(self):
         """Trains the generator :attr:`kernel_net`."""
         self.kn_optim.zero_grad()
         self._blur_cuda = self.kernel_net(self._hr_cuda)
         self._alias_cuda = self._create_aliasing(self._blur_cuda)
-        lrd_pred_fake = self.lr_disc.forward(self._alias_cuda)
+        lrd_pred_fake = self.lr_disc(self._alias_cuda)
         self.kn_gan_loss = self._gan_loss_func(lrd_pred_fake, True)
         self.kn_tot_loss = self.kn_gan_loss + self._calc_reg()
         self.kn_tot_loss.backward()
