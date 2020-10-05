@@ -112,7 +112,7 @@ class MixinHRtoLR:
 
     def _calc_reg(self):
         """Calculates kernel regularization."""
-        kernel = self.kernel_net.calc_kernel()
+        kernel = self.kernel_net.calc_kernel().kernel_cuda
         self.sum_loss = self._sum_loss_func(kernel)
         sum_loss_weight = Config().sum_loss_weight
         return sum_loss_weight * self.sum_loss

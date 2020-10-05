@@ -15,7 +15,7 @@ class KernelNet1d(nn.Sequential):
     def __init__(self):
         super().__init__()
         self.register_buffer('impulse', self._get_impulse())
-        self._kernel = None
+        self._kernel_cuda = None
         in_ch = 1
         for i, ks in enumerate(Config().kn_kernel_sizes):
             out_ch = self._calc_out_ch(i)
@@ -73,16 +73,20 @@ class KernelNet1d(nn.Sequential):
             KernelNet1d: The instance itself.
 
         """
-        with torch.no_grad():
-            self._kernel = self(self.impulse)
-        return self._kernel
+        self._kernel_cuda = self(self.impulse)
+        return self
+
+    @property
+    def kernel_cuda(self):
+        """Returns the current kernel on CUDA."""
+        if self._kernel_cuda is None:
+            self.calc_kernel()
+        return self._kernel_cuda
 
     @property
     def kernel(self):
-        """Returns the current kernel."""
-        if self._kernel is None:
-            self.calc_kernel()
-        return self._kernel.detach().cpu()
+        """Returns the current kernel on CPU."""
+        return self.kernel_cuda.detach().cpu()
 
 
 class KernelNet2d(KernelNet1d):
