@@ -112,12 +112,12 @@ class MixinHRtoLR:
     @property
     def lr(self):
         """Returns the current named low-resolution patches on CPU."""
-        return NamedData(name=self._lr_names, data=self._lr)
+        return NamedData(name=self._lr_names, data=self._lr.cpu())
 
     @property
     def hr(self):
         """Returns the current named high-resolution patches on CPU."""
-        return NamedData(name=self._hr_names, data=self._hr)
+        return NamedData(name=self._hr_names, data=self._hr.cpu())
 
     @property
     def blur(self):

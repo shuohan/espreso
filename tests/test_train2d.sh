@@ -10,7 +10,7 @@ data_dir=/data/phantom
 
 # image=/data/phantom/data/SUPERRES-ADNIPHANTOM_20200711_PHANTOM-T2-TSE-2D-CORONAL-PRE-ACQ1-04mm_resampled.nii
 image=/data/phantom/simu/SUPERRES-ADNIPHANTOM_20200711_PHANTOM-T2-TSE-3D-CORONAL-PRE-ACQ1-01mm_resampled_fwhm-8_scale-0.25.nii.gz
-outdir=../tests/results_train2d/phatom_fwhm-8_scale-0.25
+outdir=../tests/results_train2d/tmp
 
 docker run --gpus device=1 --rm \
     -v $psf_est_dir:$psf_est_dir \

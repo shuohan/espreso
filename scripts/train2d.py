@@ -64,10 +64,10 @@ kn_optim = Adam(kn.parameters(), lr=1e-3)
 lrd_optim = Adam(lrd.parameters(), lr=1e-3)
 
 hr_patch_size = pad_patch_size(config.patch_size, kn.calc_input_size_reduce())
-hr_patches = Patches(image, hr_patch_size)
+hr_patches = Patches(image, hr_patch_size).cuda()
 hr_loader = hr_patches.get_dataloader(config.batch_size)
 lr_patches = Patches(image, config.patch_size, x=2, y=1, z=0,
-                     scale_factor=config.scale_factor)
+                     scale_factor=config.scale_factor).cuda()
 lr_loader = lr_patches.get_dataloader(config.batch_size)
 
 trainer = TrainerHRtoLR(kn, lrd, init_optim, kn_optim, lrd_optim, hr_loader,
