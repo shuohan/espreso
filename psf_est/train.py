@@ -12,7 +12,7 @@ from pytorch_trainer.utils import NamedData
 from pytorch_trainer.save import ThreadedSaver, ImageThread, SavePlot
 
 from .config import Config
-from .loss import GANLoss, SumLoss, SmoothnessLoss
+from .loss import GANLoss, SumLoss, SmoothnessLoss, CenterLoss
 
 
 class InitKernelType(str, Enum):
@@ -156,8 +156,10 @@ class MixinHRtoLR:
         kernel = self.kernel_net.calc_kernel().kernel_cuda
         self.sum_loss = self._sum_loss_func(kernel)
         self.smoothness_loss = self._smoothness_loss_func(kernel)
+        self.center_loss = self._center_loss_func(kernel)
         loss = Config().sum_loss_weight * self.sum_loss
         loss = loss + Config().smoothness_loss_weight * self.smoothness_loss
+        loss = loss + Config().center_loss_weight * self.center_loss
         return loss
 
 
@@ -191,10 +193,16 @@ class TrainerHRtoLR(MixinHRtoLR, Trainer):
         self._check_data_loader_shapes()
         self.scale_factor = lr_loader.dataset.scale_factor
 
-        self._gan_loss_func = GANLoss()
-        self._sum_loss_func = SumLoss()
-        self._smoothness_loss_func = SmoothnessLoss()
-        self._init_loss_func = torch.nn.MSELoss()
+        self._gan_loss_func = GANLoss().cuda()
+        self._sum_loss_func = SumLoss().cuda()
+        self._smoothness_loss_func = SmoothnessLoss().cuda()
+        self._init_loss_func = torch.nn.MSELoss().cuda()
+
+        kernel_length = self.kernel_net.calc_kernel_size()
+        self._center_loss_func = CenterLoss(kernel_length).cuda()
+
+        print('center', self._center_loss_func.center)
+        print('locs', self._center_loss_func.locs)
 
     def _check_data_loader_shapes(self):
         """Checks the shapes of :attr:`hr_loader` and :attr:`lr_loader`."""

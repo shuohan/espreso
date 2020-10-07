@@ -158,3 +158,19 @@ class SmoothnessLoss(torch.nn.Module):
         derivative = F.conv2d(kernel, operator)
         loss = torch.sum(derivative ** 2)
         return loss
+
+
+class CenterLoss(torch.nn.Module):
+    """Penalizes off center."""
+    def __init__(self, kernel_length):
+        super().__init__()
+        self.kernel_length = kernel_length
+        center = torch.tensor(self.kernel_length // 2, dtype=torch.float32)
+        self.register_buffer('center', center)
+        locs = torch.arange(self.kernel_length, dtype=torch.float32)
+        self.register_buffer('locs', locs)
+
+    def forward(self, kernel):
+        kernel_center = torch.sum(kernel.squeeze() * self.locs)
+        loss = F.mse_loss(kernel_center, self.center)
+        return loss
