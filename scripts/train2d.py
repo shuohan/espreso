@@ -60,8 +60,9 @@ print(config)
 kn = KernelNet2d().cuda()
 lrd = LowResDiscriminator2d().cuda()
 init_optim = Adam(kn.parameters(), lr=1e-3)
-kn_optim = Adam(kn.parameters(), lr=1e-3, weight_decay=1)
-lrd_optim = Adam(lrd.parameters(), lr=1e-3)
+kn_optim = Adam(kn.parameters(), lr=2e-4, betas=(0.5, 0.999),
+                weight_decay=config.weight_decay)
+lrd_optim = Adam(lrd.parameters(), lr=2e-4, betas=(0.5, 0.999))
 
 hr_patch_size = pad_patch_size(config.patch_size, kn.calc_input_size_reduce())
 hr_patches = Patches(image, hr_patch_size).cuda()
@@ -89,7 +90,7 @@ trainer.register(init_kernel_saver)
 trainer.remove(init_queue)
 trainer.remove(init_im_saver)
 trainer.remove(init_kernel_saver)
-queue = DataQueue(['kn_gan_loss', 'sum_loss', 'smoothness_loss',
+queue = DataQueue(['kn_gan_loss', 'sum_loss', 'smoothness_loss', 'center_loss',
                    'kn_tot_loss', 'lrd_tot_loss'])
 im_saver = ImageSaver(im_output, attrs=['lr', 'hr', 'blur', 'alias'],
                       step=config.image_save_step, file_struct='epoch/sample',
