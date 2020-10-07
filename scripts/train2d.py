@@ -60,7 +60,7 @@ print(config)
 kn = KernelNet2d().cuda()
 lrd = LowResDiscriminator2d().cuda()
 init_optim = Adam(kn.parameters(), lr=1e-3)
-kn_optim = Adam(kn.parameters(), lr=1e-3)
+kn_optim = Adam(kn.parameters(), lr=1e-3, weight_decay=1)
 lrd_optim = Adam(lrd.parameters(), lr=1e-3)
 
 hr_patch_size = pad_patch_size(config.patch_size, kn.calc_input_size_reduce())
