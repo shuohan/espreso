@@ -89,7 +89,8 @@ trainer.train(init_kernel=True)
 trainer.remove(init_queue)
 trainer.remove(init_im_saver)
 trainer.remove(init_kernel_saver)
-queue = DataQueue(['kn_gan_loss', 'sum_loss', 'kn_tot_loss', 'lrd_tot_loss'])
+queue = DataQueue(['kn_gan_loss', 'sum_loss', 'smoothness_loss',
+                   'kn_tot_loss', 'lrd_tot_loss'])
 im_saver = ImageSaver(im_output, attrs=['lr', 'hr', 'blur', 'alias'],
                       step=config.image_save_step, file_struct='epoch/sample',
                       save_type='png', save_init=False)

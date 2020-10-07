@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from lr_simu.kernel import create_gaussian_kernel
 
-from psf_est.loss import GANLoss, SumLoss, SumLossMSE
+from psf_est.loss import GANLoss, SumLoss, SumLossMSE, SmoothnessLoss
 from psf_est.loss import GaussInitLoss, GaussInitLoss1d, GaussInitLoss2d
 from psf_est.network import KernelNet1d, KernelNet2d
 
@@ -28,6 +28,13 @@ def test_loss():
     sum_loss_func = SumLossMSE()
     sum_loss = sum_loss_func(kernel)
     assert torch.allclose(sum_loss, torch.tensor(5.5 ** 2))
+
+    kernel = torch.tensor([1, 0, 2, -1, 4, 3], dtype=torch.float32)
+    kernel = kernel[None, None, ..., None]
+    smoothness_loss_func = SmoothnessLoss()
+    smoothness_loss = smoothness_loss_func(kernel)
+    norm = 1 ** 2 + 2 ** 2  +3 ** 2 + 5 ** 2 + 1 ** 2
+    assert smoothness_loss == norm
 
     scale = 11.2
     kernel_size = 13

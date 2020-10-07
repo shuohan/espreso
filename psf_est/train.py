@@ -12,7 +12,7 @@ from pytorch_trainer.utils import NamedData
 from pytorch_trainer.save import ThreadedSaver, ImageThread, SavePlot
 
 from .config import Config
-from .loss import GANLoss, SumLoss
+from .loss import GANLoss, SumLoss, SmoothnessLoss
 
 
 class InitKernelType(str, Enum):
@@ -155,8 +155,10 @@ class MixinHRtoLR:
         """Calculates kernel regularization."""
         kernel = self.kernel_net.calc_kernel().kernel_cuda
         self.sum_loss = self._sum_loss_func(kernel)
-        sum_loss_weight = Config().sum_loss_weight
-        return sum_loss_weight * self.sum_loss
+        self.smoothness_loss = self._smoothness_loss_func(kernel)
+        loss = Config().sum_loss_weight * self.sum_loss
+        loss = loss + Config().smoothness_loss_weight * self.smoothness_loss
+        return loss
 
 
 class TrainerHRtoLR(MixinHRtoLR, Trainer):
@@ -191,6 +193,7 @@ class TrainerHRtoLR(MixinHRtoLR, Trainer):
 
         self._gan_loss_func = GANLoss()
         self._sum_loss_func = SumLoss()
+        self._smoothness_loss_func = SmoothnessLoss()
         self._init_loss_func = torch.nn.MSELoss()
 
     def _check_data_loader_shapes(self):

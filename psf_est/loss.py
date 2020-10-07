@@ -147,3 +147,14 @@ class SumLossMSE(SumLoss):
     """
     def _calc_loss(self, sum, one):
         return F.mse_loss(sum, one)
+
+
+class SmoothnessLoss(torch.nn.Module):
+    """L2 norm of derivative."""
+    def forward(self, kernel):
+        device = kernel.device
+        operator = torch.tensor([1, -1], dtype=torch.float32, device=device)
+        operator = operator[None, None, ..., None]
+        derivative = F.conv2d(kernel, operator)
+        loss = torch.sum(derivative ** 2)
+        return loss
