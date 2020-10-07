@@ -21,7 +21,7 @@ class Config(Config_):
     def __init__(self):
         super().__init__()
         self.add_config('kn_num_channels', 64)
-        self.add_config('kn_kernel_sizes', [7, 5, 3, 1, 1, 1])
+        self.add_config('kn_kernel_sizes', [9, 7, 5, 3, 1, 1])
         self.add_config('lrd_num_convs', 5)
         self.add_config('lrd_num_channels', 64)
         self.add_config('lrelu_neg_slope', 0.2)
@@ -32,5 +32,6 @@ class Config(Config_):
         self.add_config('sum_loss_weight', 1)
         self.add_config('smoothness_loss_weight', 1)
         self.add_config('center_loss_weight', 1)
+        self.add_config('weight_decay', 1e-5)
         self.add_config('image_save_step', 100)
         self.add_config('num_init_epochs', 100)
