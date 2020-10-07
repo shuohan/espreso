@@ -84,7 +84,7 @@ trainer.register(init_queue)
 trainer.register(init_im_saver)
 trainer.register(init_kernel_saver)
 
-trainer.train(init_kernel=True)
+# trainer.train(init_kernel=True)
 
 trainer.remove(init_queue)
 trainer.remove(init_im_saver)
