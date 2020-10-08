@@ -181,7 +181,7 @@ class MixinHRtoLR:
 
     def _calc_reg(self):
         """Calculates kernel regularization."""
-        kernel = self.kernel_net.calc_kernel().kernel_cuda
+        kernel = self.kernel_net.kernel_cuda
         self.sum_loss = self._sum_loss_func(kernel)
         self.smoothness_loss = self._smoothness_loss_func(kernel)
         self.center_loss = self._center_loss_func(kernel)
@@ -226,7 +226,7 @@ class TrainerHRtoLR(MixinHRtoLR, Trainer):
         self._smoothness_loss_func = SmoothnessLoss().cuda()
         self._init_loss_func = torch.nn.MSELoss().cuda()
 
-        kernel_length = self.kernel_net.calc_kernel_size()
+        kernel_length = self.kernel_net.kernel_size
         self._center_loss_func = CenterLoss(kernel_length).cuda()
 
         print('center', self._center_loss_func.center)
@@ -274,12 +274,11 @@ class TrainerHRtoLR(MixinHRtoLR, Trainer):
         self.init_loss = self._init_loss_func(self._blur_cuda, self._ref_cuda)
         self.init_loss.backward()
         self.init_optim.step()
-        self.kernel_net.calc_kernel()
 
     def _create_init_kernel(self):
         """Creates the kernel to initialize to."""
         shape = list(self.kernel_net.impulse.shape)
-        shape[2] = self.kernel_net.calc_kernel_size()
+        shape[2] = self.kernel_net.kernel_size
         kernel_type = self.init_kernel_type
         kernel = create_init_kernel(kernel_type, self.scale_factor, shape)
         return kernel.cuda()
