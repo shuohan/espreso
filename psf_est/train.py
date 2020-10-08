@@ -1,9 +1,11 @@
 """Functions and classes to train the algorithm.
 
 """
+import numpy as np
 import torch
 import torch.nn.functional as F
 from collections.abc import Iterable
+import matplotlib.pyplot as plt
 from pathlib import Path
 from enum import Enum
 
@@ -50,6 +52,32 @@ def create_init_kernel(init_kernel_type, scale_factor, shape):
     return kernel
 
 
+class Save(SavePlot):
+    def save(self, filename, image):
+        print('save')
+        filename = str(filename)
+        if not filename.endswith('.png'):
+            filename = filename + '.png'
+        image = image.squeeze().numpy()
+        max = np.max(image)
+        indices = np.where(image > max / 2)[0]
+
+        plt.cla()
+        plt.plot(image, '-o')
+
+        if len(indices) >= 2:
+            left = indices[0] - 0.5
+            right = indices[-1] + 0.5
+            print(left, right)
+            plt.plot([left, left], [0, max], 'k--')
+            plt.plot([right, right], [0, max], 'k--')
+            plt.text(left, 0, str(right - left))
+
+        plt.grid(True)
+        plt.tight_layout()
+        plt.gcf().savefig(filename)
+
+
 class KernelSaver(ThreadedSaver):
     """Saves the kernel after each epoch.
 
@@ -60,7 +88,7 @@ class KernelSaver(ThreadedSaver):
         Path(self.dirname).mkdir(parents=True, exist_ok=True)
 
     def _init_thread(self):
-        save_plot = SavePlot()
+        save_plot = Save()
         return ImageThread(save_plot, self.queue)
 
     def _check_subject_type(self, subject):
