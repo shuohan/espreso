@@ -9,8 +9,8 @@ simu_dir=~/Code/shuo/utils/lr-simu
 data_dir=/data/phantom
 
 # image=/data/phantom/data/SUPERRES-ADNIPHANTOM_20200711_PHANTOM-T2-TSE-2D-CORONAL-PRE-ACQ1-04mm_resampled.nii
-image=/data/phantom/simu/SUPERRES-ADNIPHANTOM_20200711_PHANTOM-T2-TSE-3D-CORONAL-PRE-ACQ1-01mm_resampled_fwhm-2p0_scale-0p25.nii
-outdir=../tests/results_train2d/smoothness_2mm_0p25_center
+image=/data/phantom/simu/SUPERRES-ADNIPHANTOM_20200711_PHANTOM-T2-TSE-3D-CORONAL-PRE-ACQ1-01mm_resampled_fwhm-8p0_scale-0p25.nii
+outdir=../tests/results_train2d/smoothness_8mm_0p25_center
 
 docker run --gpus device=1 --rm \
     -v $psf_est_dir:$psf_est_dir \

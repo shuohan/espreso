@@ -5,11 +5,11 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('-i', '--input', help='Input image.')
 parser.add_argument('-o', '--output', help='Output directory.')
-parser.add_argument('-b', '--batch-size', default=64, type=int,
+parser.add_argument('-b', '--batch-size', default=32, type=int,
                     help='The number of samples per mini-batch.')
 parser.add_argument('-s', '--scale-factor', default=None, type=float,
                     help='Super resolution scale factor.')
-parser.add_argument('-e', '--num-epochs', default=100000, type=int,
+parser.add_argument('-e', '--num-epochs', default=10000, type=int,
                     help='The number of epochs (iterations).')
 parser.add_argument('-ie', '--num-init-epochs', default=1000, type=int,
                     help='The number of iterations to initialize the kernel.')
