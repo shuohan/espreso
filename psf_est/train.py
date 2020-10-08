@@ -162,6 +162,15 @@ class MixinHRtoLR:
         """Returns the current estimated aliased patches on CPU."""
         return self._alias_cuda.detach().cpu()
 
+    @property
+    def lrd_pred_real(self):
+        print(self._lrd_pred_real.min(), self._lrd_pred_real.max())
+        return self._lrd_pred_real.detach().cpu()
+
+    @property
+    def lrd_pred_fake(self):
+        return self._lrd_pred_fake.detach().cpu()
+
     def _create_aliasing(self, patches):
         """Creates aliasing on patches."""
         mode = 'linear' if patches.dim() == 3 else 'bilinear'
@@ -286,7 +295,8 @@ class TrainerHRtoLR(MixinHRtoLR, Trainer):
     def _train(self):
         """Trains the kernel with GAN."""
         self._train_kernel_net()
-        self._train_lr_disc()
+        for i in range(10):
+            self._train_lr_disc()
 
     def _train_kernel_net(self):
         """Trains the generator :attr:`kernel_net`."""
@@ -302,10 +312,10 @@ class TrainerHRtoLR(MixinHRtoLR, Trainer):
     def _train_lr_disc(self):
         """Trains the low-resolution discriminator :attr:`lr_disc`."""
         self.lrd_optim.zero_grad()
-        lrd_pred_real = self.lr_disc(self._lr_cuda)
-        lrd_pred_fake = self.lr_disc(self._alias_cuda.detach())
-        self._lrd_real_loss = self._gan_loss_func(lrd_pred_real, True)
-        self._lrd_fake_loss = self._gan_loss_func(lrd_pred_fake, False)
+        self._lrd_pred_real = self.lr_disc(self._lr_cuda)
+        self._lrd_pred_fake = self.lr_disc(self._alias_cuda.detach())
+        self._lrd_real_loss = self._gan_loss_func(self._lrd_pred_real, True)
+        self._lrd_fake_loss = self._gan_loss_func(self._lrd_pred_fake, False)
         self.lrd_tot_loss = self._lrd_real_loss + self._lrd_fake_loss
         self.lrd_tot_loss.backward()
         self.lrd_optim.step()

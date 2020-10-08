@@ -27,11 +27,11 @@ def test_networks():
     # lrd_dot = make_dot(patch1d, lrd)
     # lrd_dot.render(dirname.joinpath('lrd1d'))
 
-    # lrd = LowResDiscriminator2d().cuda()
-    # print(lrd)
+    lrd = LowResDiscriminator2d().cuda()
+    print(lrd)
     # assert lrd(patch2d).shape == (2, 1, 1, 1)
-    # lrd_dot = make_dot(patch2d, lrd)
-    # lrd_dot.render(dirname.joinpath('lrd2d'))
+    lrd_dot = make_dot(patch2d, lrd)
+    lrd_dot.render(dirname.joinpath('lrd2d'))
 
 
 if __name__ == '__main__':

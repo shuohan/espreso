@@ -84,14 +84,15 @@ class LowResDiscriminator1d(nn.Sequential):
                 self.add_module('conv%d' % i, conv)
             in_ch = out_ch
             out_ch = in_ch * 2
+        self.sigmoid = nn.Sigmoid()
 
     def _create_early_conv(self, in_ch, out_ch):
         """Creates a conv layer which is not the final one."""
-        return nn.Conv1d(in_ch, out_ch, 4, stride=2, padding=1, bias=False)
+        return nn.Conv1d(in_ch, out_ch, 1, stride=1, padding=0, bias=False)
 
     def _create_final_conv(self, in_ch):
         """Creates the final conv layer."""
-        return nn.Conv1d(in_ch, 1, 4, stride=1, padding=0, bias=False)
+        return nn.Conv1d(in_ch, 1, 1, stride=1, padding=0, bias=False)
 
 
 class LowResDiscriminator2d(LowResDiscriminator1d):
@@ -100,8 +101,12 @@ class LowResDiscriminator2d(LowResDiscriminator1d):
     """
     def _create_early_conv(self, in_ch, out_ch):
         """Creates a conv layer which is not the final one."""
-        return nn.Conv2d(in_ch, out_ch, 4, stride=2, padding=1, bias=False)
+        return nn.Conv2d(in_ch, out_ch, (4, 1), stride=(1, 2), padding=0, bias=True)
 
     def _create_final_conv(self, in_ch):
         """Creates the final conv layer."""
-        return nn.Conv2d(in_ch, 1, 4, stride=1, padding=0, bias=False)
+        return nn.Conv2d(in_ch, 1, (4, 1), stride=(1, 2), padding=0, bias=True)
+
+    def forward(self, x):
+        output = super().forward(x)
+        return output
