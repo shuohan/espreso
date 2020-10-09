@@ -26,7 +26,7 @@ class KernelNet2d(nn.Sequential):
         for i in range(num_linears):
             linear = nn.Linear(num_ch, num_ch)
             self.add_module('linear%d' % i, linear)
-            self.add_module('relu%d' % i, nn.ReLU6())
+            # self.add_module('relu%d' % i, nn.ReLU6())
 
         linear = nn.Linear(num_ch, self.kernel_size)
         self.add_module('linear%d' % num_linears, linear)
