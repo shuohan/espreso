@@ -16,7 +16,7 @@ class KernelNet2d(nn.Sequential):
     def __init__(self):
         super().__init__()
 
-        num_ch = 1024
+        num_ch = 64
         num_linears = 3
 
         self.input_tensor = torch.zeros(1, num_ch, dtype=torch.float32)

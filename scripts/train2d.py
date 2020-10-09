@@ -64,6 +64,9 @@ kn_optim = Adam(kn.parameters(), lr=2e-4, betas=(0.5, 0.999),
                 weight_decay=config.weight_decay)
 lrd_optim = Adam(lrd.parameters(), lr=1e-3)
 
+print(kn)
+print(lrd)
+
 hr_patch_size = pad_patch_size(config.patch_size, kn.calc_input_size_reduce())
 hr_patches = Patches(image, hr_patch_size).cuda()
 hr_loader = hr_patches.get_dataloader(config.batch_size)
