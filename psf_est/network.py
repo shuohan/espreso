@@ -16,23 +16,32 @@ class KernelNet2d(nn.Sequential):
     def __init__(self):
         super().__init__()
 
-        num_ch = 64
-        num_linears = 3
+        self.beta = 0.95
+
+        num_ch = 1024
+        self.num_linears = 3
 
         self.input_tensor = torch.zeros(1, num_ch, dtype=torch.float32)
         self.input_tensor = nn.Parameter(self.input_tensor)
         self.kernel_size = 21
 
-        for i in range(num_linears):
+        for i in range(self.num_linears):
             linear = nn.Linear(num_ch, num_ch)
             self.add_module('linear%d' % i, linear)
-            # self.add_module('relu%d' % i, nn.ReLU6())
+            self.add_module('relu%d' % i, nn.ReLU6())
 
         linear = nn.Linear(num_ch, self.kernel_size)
-        self.add_module('linear%d' % num_linears, linear)
+        self.add_module('linear%d' % self.num_linears, linear)
         self.softmax = nn.Softmax(dim=1)
 
         self.reset_parameters()
+
+        self._avg_weights = list()
+        self._avg_input = self.input_tensor.detach().cuda()
+        for i in range(self.num_linears + 1):
+            linear = getattr(self, 'linear%d' % i)
+            self._avg_weights.append({'weight': linear.weight.detach().cuda(),
+                                      'bias': linear.bias.detach().cuda()})
 
     def reset_parameters(self):
         nn.init.kaiming_uniform_(self.input_tensor, a=np.sqrt(5))
@@ -56,6 +65,30 @@ class KernelNet2d(nn.Sequential):
     def kernel(self):
         """Returns the current kernel on CPU."""
         return self.kernel_cuda.detach().cpu()
+
+    @property
+    def avg_kernel(self):
+        output = self._avg_input
+        for i in range(self.num_linears + 1):
+            weight = self._avg_weights[i]['weight']
+            bias = self._avg_weights[i]['bias']
+            output = F.linear(output, weight, bias=bias)
+            output = F.relu6(output)
+        output = self.softmax(output)
+        return output.detach().cpu()
+
+    def avg(self):
+        self._avg_input = (1 - self.beta) * self.input_tensor \
+            + self.beta * self._avg_input
+
+        for i in range(self.num_linears + 1):
+            linear = getattr(self, 'linear%d' % i)
+            self._avg_weights[i]['weight'] \
+                = (1 - self.beta) * linear.weight.detach() \
+                + self.beta * self._avg_weights[i]['weight']
+            self._avg_weights[i]['bias'] \
+                = (1 - self.beta) * linear.bias.detach() \
+                + self.beta * self._avg_weights[i]['bias']
 
     def forward(self, x):
         kernel = self.kernel_cuda

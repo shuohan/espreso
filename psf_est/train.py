@@ -104,6 +104,13 @@ class KernelSaver(ThreadedSaver):
         pattern = str(Path(self.dirname, pattern))
         filename = pattern % self.subject.epoch_ind
         self.queue.put(NamedData(filename, kernel))
+        
+        avg_kernel = self.subject.kernel_net.avg_kernel
+        pattern = 'avg_epoch-%%0%dd' % len(str(self.subject.num_epochs))
+        pattern = str(Path(self.dirname, pattern))
+        filename = pattern % self.subject.epoch_ind
+        self.queue.put(NamedData(filename, avg_kernel))
+
 
 
 class MixinHRtoLR:
@@ -297,6 +304,7 @@ class TrainerHRtoLR(MixinHRtoLR, Trainer):
         self._train_kernel_net()
         for i in range(10):
             self._train_lr_disc()
+        self.kernel_net.avg()
 
     def _train_kernel_net(self):
         """Trains the generator :attr:`kernel_net`."""
