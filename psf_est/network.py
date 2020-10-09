@@ -16,7 +16,7 @@ class KernelNet2d(nn.Sequential):
     def __init__(self):
         super().__init__()
 
-        self.beta = 0.95
+        self.beta = 0.99
 
         num_ch = 1024
         self.num_linears = 3
@@ -36,12 +36,8 @@ class KernelNet2d(nn.Sequential):
 
         self.reset_parameters()
 
-        self._avg_weights = list()
-        self._avg_input = self.input_tensor.detach().cuda()
-        for i in range(self.num_linears + 1):
-            linear = getattr(self, 'linear%d' % i)
-            self._avg_weights.append({'weight': linear.weight.detach().cuda(),
-                                      'bias': linear.bias.detach().cuda()})
+        self._avg_kernel = self.kernel_cuda.cuda().detach()
+
 
     def reset_parameters(self):
         nn.init.kaiming_uniform_(self.input_tensor, a=np.sqrt(5))
@@ -68,27 +64,11 @@ class KernelNet2d(nn.Sequential):
 
     @property
     def avg_kernel(self):
-        output = self._avg_input
-        for i in range(self.num_linears + 1):
-            weight = self._avg_weights[i]['weight']
-            bias = self._avg_weights[i]['bias']
-            output = F.linear(output, weight, bias=bias)
-            output = F.relu6(output)
-        output = self.softmax(output)
-        return output.detach().cpu()
+        return self._avg_kernel.detach().cpu()
 
     def avg(self):
-        self._avg_input = (1 - self.beta) * self.input_tensor \
-            + self.beta * self._avg_input
-
-        for i in range(self.num_linears + 1):
-            linear = getattr(self, 'linear%d' % i)
-            self._avg_weights[i]['weight'] \
-                = (1 - self.beta) * linear.weight.detach() \
-                + self.beta * self._avg_weights[i]['weight']
-            self._avg_weights[i]['bias'] \
-                = (1 - self.beta) * linear.bias.detach() \
-                + self.beta * self._avg_weights[i]['bias']
+        self._avg_kernel = (1 - self.beta) * self.kernel_cuda.detach() \
+            + self.beta * self._avg_kernel
 
     def forward(self, x):
         kernel = self.kernel_cuda
