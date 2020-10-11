@@ -62,7 +62,10 @@ lrd = LowResDiscriminator2d().cuda()
 init_optim = Adam(kn.parameters(), lr=1e-3)
 kn_optim = Adam(kn.parameters(), lr=2e-4, betas=(0.5, 0.999),
                 weight_decay=config.weight_decay)
-lrd_optim = Adam(lrd.parameters(), lr=2e-4, betas=(0.5, 0.999))
+lrd_optim = Adam(lrd.parameters(), lr=1e-3)
+
+print(kn)
+print(lrd)
 
 hr_patch_size = pad_patch_size(config.patch_size, kn.calc_input_size_reduce())
 hr_patches = Patches(image, hr_patch_size).cuda()
@@ -74,7 +77,9 @@ lr_loader = lr_patches.get_dataloader(config.batch_size)
 trainer = TrainerHRtoLR(kn, lrd, init_optim, kn_optim, lrd_optim, hr_loader,
                         lr_loader, init_kernel_type='impulse')
 init_queue = DataQueue(['init_loss'])
-init_im_saver = ImageSaver(init_im_output, attrs=['hr', 'blur', 'ref'],
+init_im_saver = ImageSaver(init_im_output,
+                           attrs=['hr', 'blur', 'ref', 'lrd_pred_real',
+                                  'lrd_pred_fake'],
                            step=config.image_save_step, save_type='png',
                            file_struct='epoch/sample')
 init_kernel_saver = KernelSaver(init_kernel_output, step=config.image_save_step,
@@ -92,7 +97,8 @@ trainer.remove(init_im_saver)
 trainer.remove(init_kernel_saver)
 queue = DataQueue(['kn_gan_loss', 'sum_loss', 'smoothness_loss', 'center_loss',
                    'kn_tot_loss', 'lrd_tot_loss'])
-im_saver = ImageSaver(im_output, attrs=['lr', 'hr', 'blur', 'alias'],
+im_saver = ImageSaver(im_output, attrs=['lr', 'hr', 'blur', 'alias',
+                                        'lrd_pred_real', 'lrd_pred_fake'],
                       step=config.image_save_step, file_struct='epoch/sample',
                       save_type='png', save_init=False)
 kernel_saver = KernelSaver(kernel_output, step=config.image_save_step,

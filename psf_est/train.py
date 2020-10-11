@@ -104,6 +104,13 @@ class KernelSaver(ThreadedSaver):
         pattern = str(Path(self.dirname, pattern))
         filename = pattern % self.subject.epoch_ind
         self.queue.put(NamedData(filename, kernel))
+        
+        avg_kernel = self.subject.kernel_net.avg_kernel
+        pattern = 'avg_epoch-%%0%dd' % len(str(self.subject.num_epochs))
+        pattern = str(Path(self.dirname, pattern))
+        filename = pattern % self.subject.epoch_ind
+        self.queue.put(NamedData(filename, avg_kernel))
+
 
 
 class MixinHRtoLR:
@@ -162,6 +169,15 @@ class MixinHRtoLR:
         """Returns the current estimated aliased patches on CPU."""
         return self._alias_cuda.detach().cpu()
 
+    @property
+    def lrd_pred_real(self):
+        print(self._lrd_pred_real.min(), self._lrd_pred_real.max())
+        return self._lrd_pred_real.detach().cpu()
+
+    @property
+    def lrd_pred_fake(self):
+        return self._lrd_pred_fake.detach().cpu()
+
     def _create_aliasing(self, patches):
         """Creates aliasing on patches."""
         mode = 'linear' if patches.dim() == 3 else 'bilinear'
@@ -181,7 +197,7 @@ class MixinHRtoLR:
 
     def _calc_reg(self):
         """Calculates kernel regularization."""
-        kernel = self.kernel_net.calc_kernel().kernel_cuda
+        kernel = self.kernel_net.kernel_cuda
         self.sum_loss = self._sum_loss_func(kernel)
         self.smoothness_loss = self._smoothness_loss_func(kernel)
         self.center_loss = self._center_loss_func(kernel)
@@ -226,7 +242,7 @@ class TrainerHRtoLR(MixinHRtoLR, Trainer):
         self._smoothness_loss_func = SmoothnessLoss().cuda()
         self._init_loss_func = torch.nn.MSELoss().cuda()
 
-        kernel_length = self.kernel_net.calc_kernel_size()
+        kernel_length = self.kernel_net.kernel_size
         self._center_loss_func = CenterLoss(kernel_length).cuda()
 
         print('center', self._center_loss_func.center)
@@ -274,12 +290,11 @@ class TrainerHRtoLR(MixinHRtoLR, Trainer):
         self.init_loss = self._init_loss_func(self._blur_cuda, self._ref_cuda)
         self.init_loss.backward()
         self.init_optim.step()
-        self.kernel_net.calc_kernel()
 
     def _create_init_kernel(self):
         """Creates the kernel to initialize to."""
         shape = list(self.kernel_net.impulse.shape)
-        shape[2] = self.kernel_net.calc_kernel_size()
+        shape[2] = self.kernel_net.kernel_size
         kernel_type = self.init_kernel_type
         kernel = create_init_kernel(kernel_type, self.scale_factor, shape)
         return kernel.cuda()
@@ -287,7 +302,9 @@ class TrainerHRtoLR(MixinHRtoLR, Trainer):
     def _train(self):
         """Trains the kernel with GAN."""
         self._train_kernel_net()
-        self._train_lr_disc()
+        for i in range(10):
+            self._train_lr_disc()
+        self.kernel_net.avg()
 
     def _train_kernel_net(self):
         """Trains the generator :attr:`kernel_net`."""
@@ -303,10 +320,10 @@ class TrainerHRtoLR(MixinHRtoLR, Trainer):
     def _train_lr_disc(self):
         """Trains the low-resolution discriminator :attr:`lr_disc`."""
         self.lrd_optim.zero_grad()
-        lrd_pred_real = self.lr_disc(self._lr_cuda)
-        lrd_pred_fake = self.lr_disc(self._alias_cuda.detach())
-        self._lrd_real_loss = self._gan_loss_func(lrd_pred_real, True)
-        self._lrd_fake_loss = self._gan_loss_func(lrd_pred_fake, False)
+        self._lrd_pred_real = self.lr_disc(self._lr_cuda)
+        self._lrd_pred_fake = self.lr_disc(self._alias_cuda.detach())
+        self._lrd_real_loss = self._gan_loss_func(self._lrd_pred_real, True)
+        self._lrd_fake_loss = self._gan_loss_func(self._lrd_pred_fake, False)
         self.lrd_tot_loss = self._lrd_real_loss + self._lrd_fake_loss
         self.lrd_tot_loss.backward()
         self.lrd_optim.step()

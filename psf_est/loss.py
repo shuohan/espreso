@@ -48,7 +48,7 @@ class GANLoss(torch.nn.Module):
 
     def forward(self, x, is_real):
         target = torch.ones_like(x) if is_real else torch.zeros_like(x)
-        loss = F.binary_cross_entropy_with_logits(x, target)
+        loss = F.binary_cross_entropy(x, target)
         return loss
 
 

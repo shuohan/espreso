@@ -1,11 +1,12 @@
 import torch
 import numpy as np
 from torch import nn
+import torch.nn.functional as F
 
 from .config import Config
 
 
-class KernelNet1d(nn.Sequential):
+class KernelNet2d(nn.Sequential):
     """The network to learn a 1D blur point-spread function (PSF) from 1D data.
 
     Attributes:
@@ -14,33 +15,32 @@ class KernelNet1d(nn.Sequential):
     """
     def __init__(self):
         super().__init__()
-        self.register_buffer('impulse', self._get_impulse())
-        self._kernel_cuda = None
-        in_ch = 1
-        for i, ks in enumerate(Config().kn_kernel_sizes):
-            out_ch = self._calc_out_ch(i)
-            conv = self._create_conv(in_ch, out_ch, ks)
-            self.add_module('conv%d' % i, conv)
-            in_ch = out_ch
 
-    def _get_impulse(self):
-        """Returns the impulse function as the input."""
-        impulse_shape = 2 * self.calc_kernel_size() - 1
-        impulse = torch.zeros([1, 1, impulse_shape]).float()
-        impulse[:, :, impulse_shape // 2] = 1
-        return impulse
+        self.beta = 0.99
 
-    def _calc_out_ch(self, i):
-        """Calculates the number of output channels for a conv."""
-        config = Config()
-        if i < len(config.kn_kernel_sizes) - 1 :
-            return config.kn_num_channels
-        else:
-            return 1
+        num_ch = 1024
+        self.num_linears = 3
 
-    def _create_conv(self, in_ch, out_ch, ks):
-        """Creates a conv layer."""
-        return nn.Conv1d(in_ch, out_ch, ks, bias=False)
+        self.input_tensor = torch.zeros(1, num_ch, dtype=torch.float32)
+        self.input_tensor = nn.Parameter(self.input_tensor)
+        self.kernel_size = 21
+
+        for i in range(self.num_linears):
+            linear = nn.Linear(num_ch, num_ch)
+            self.add_module('linear%d' % i, linear)
+            self.add_module('relu%d' % i, nn.ReLU6())
+
+        linear = nn.Linear(num_ch, self.kernel_size)
+        self.add_module('linear%d' % self.num_linears, linear)
+        self.softmax = nn.Softmax(dim=1)
+
+        self.reset_parameters()
+
+        self._avg_kernel = self.kernel_cuda.cuda().detach()
+
+
+    def reset_parameters(self):
+        nn.init.kaiming_uniform_(self.input_tensor, a=np.sqrt(5))
 
     def calc_input_size_reduce(self):
         """Calculates the number of pixels reduced from the input image.
@@ -49,56 +49,30 @@ class KernelNet1d(nn.Sequential):
             int: The number of reduced pixels.
 
         """
-        return np.sum(np.array(Config().kn_kernel_sizes) - 1)
-
-    def calc_kernel_size(self):
-        """Calculates the size of the PSF according to the size of conv weights.
-
-        The equation is from
-        https://distill.pub/2019/computing-receptive-fields/
-
-        Returns:
-            int: The size of the PSF.
-
-        """
-        return self.calc_input_size_reduce() + 1
-
-    def calc_kernel(self):
-        """Calculates the current kernel.
-
-        Note:
-            Call :meth:`kernel` to return the calculated kernel.
-
-        Returns:
-            KernelNet1d: The instance itself.
-
-        """
-        self._kernel_cuda = self(self.impulse)
-        return self
+        return self.kernel_size - 1
 
     @property
     def kernel_cuda(self):
-        """Returns the current kernel on CUDA."""
-        if self._kernel_cuda is None:
-            self.calc_kernel()
-        return self._kernel_cuda
+        kernel = super().forward(self.input_tensor) 
+        kernel = kernel.view(1, 1, -1, 1)
+        return kernel
 
     @property
     def kernel(self):
         """Returns the current kernel on CPU."""
         return self.kernel_cuda.detach().cpu()
 
+    @property
+    def avg_kernel(self):
+        return self._avg_kernel.detach().cpu()
 
-class KernelNet2d(KernelNet1d):
-    """The network to learn a 1D blur point-spread function (PSF) from 2D data.
+    def avg(self):
+        self._avg_kernel = (1 - self.beta) * self.kernel_cuda.detach() \
+            + self.beta * self._avg_kernel
 
-    """
-    def _create_conv(self, in_ch, out_ch, ks):
-        return nn.Conv2d(in_ch, out_ch, (ks, 1), bias=False)
-
-    def _get_impulse(self):
-        impulse = super()._get_impulse()[..., None]
-        return impulse
+    def forward(self, x):
+        kernel = self.kernel_cuda
+        return F.conv2d(x, kernel)
 
 
 class LowResDiscriminator1d(nn.Sequential):
@@ -123,14 +97,15 @@ class LowResDiscriminator1d(nn.Sequential):
                 self.add_module('conv%d' % i, conv)
             in_ch = out_ch
             out_ch = in_ch * 2
+        self.sigmoid = nn.Sigmoid()
 
     def _create_early_conv(self, in_ch, out_ch):
         """Creates a conv layer which is not the final one."""
-        return nn.Conv1d(in_ch, out_ch, 4, stride=2, padding=1, bias=False)
+        return nn.Conv1d(in_ch, out_ch, 1, stride=1, padding=0, bias=False)
 
     def _create_final_conv(self, in_ch):
         """Creates the final conv layer."""
-        return nn.Conv1d(in_ch, 1, 4, stride=1, padding=0, bias=False)
+        return nn.Conv1d(in_ch, 1, 1, stride=1, padding=0, bias=False)
 
 
 class LowResDiscriminator2d(LowResDiscriminator1d):
@@ -139,8 +114,12 @@ class LowResDiscriminator2d(LowResDiscriminator1d):
     """
     def _create_early_conv(self, in_ch, out_ch):
         """Creates a conv layer which is not the final one."""
-        return nn.Conv2d(in_ch, out_ch, 4, stride=2, padding=1, bias=False)
+        return nn.Conv2d(in_ch, out_ch, (4, 1), stride=(1, 2), padding=0, bias=True)
 
     def _create_final_conv(self, in_ch):
         """Creates the final conv layer."""
-        return nn.Conv2d(in_ch, 1, 4, stride=1, padding=0, bias=False)
+        return nn.Conv2d(in_ch, 1, (4, 1), stride=(1, 2), padding=0, bias=True)
+
+    def forward(self, x):
+        output = super().forward(x)
+        return output
