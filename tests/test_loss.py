@@ -2,11 +2,8 @@
 
 import numpy as np
 import torch
-from lr_simu.kernel import create_gaussian_kernel
 
-from psf_est.loss import GANLoss, SumLoss, SumLossMSE, SmoothnessLoss
-from psf_est.loss import GaussInitLoss, GaussInitLoss1d, GaussInitLoss2d
-from psf_est.network import KernelNet1d, KernelNet2d
+from psf_est.loss import GANLoss, SmoothnessLoss, CenterLoss
 
 
 def test_loss():
@@ -20,15 +17,6 @@ def test_loss():
     ref = -np.log(1 / (1 + np.exp(-x))).mean()
     assert np.allclose(ref, gan_loss.cpu().detach().numpy())
 
-    kernel = torch.ones([1, 1, 13]) * 0.5
-    sum_loss_func = SumLoss()
-    sum_loss = sum_loss_func(kernel)
-    assert torch.allclose(sum_loss, torch.tensor(5.5))
-
-    sum_loss_func = SumLossMSE()
-    sum_loss = sum_loss_func(kernel)
-    assert torch.allclose(sum_loss, torch.tensor(5.5 ** 2))
-
     kernel = torch.tensor([1, 0, 2, -1, 4, 3], dtype=torch.float32)
     kernel = kernel[None, None, ..., None]
     smoothness_loss_func = SmoothnessLoss()
@@ -36,28 +24,10 @@ def test_loss():
     norm = 1 ** 2 + 2 ** 2  +3 ** 2 + 5 ** 2 + 1 ** 2
     assert smoothness_loss == norm
 
-    scale = 11.2
-    kernel_size = 13
-    gauss = create_gaussian_kernel(1 / scale, length=kernel_size//2)
-    gauss_loss_func = GaussInitLoss(scale, kernel_size).cuda()
-    assert torch.equal(torch.tensor(gauss)[None, None, ...].float(),
-                       gauss_loss_func.gauss_kernel.cpu())
-    diff = np.mean((gauss - kernel.numpy()) ** 2)
-    gauss_loss = gauss_loss_func(kernel.cuda())
-    assert np.isclose(diff, gauss_loss.item())
-
-    im1d = torch.rand(10, 1, 64).cuda()
-    net1d = KernelNet1d().cuda()
-    gauss_loss_func = GaussInitLoss1d(scale, kernel_size).cuda()
-    gauss_loss = gauss_loss_func(net1d, im1d)
-    print(gauss_loss)
-
-    im2d = torch.rand(10, 1, 64, 64).cuda()
-    net2d = KernelNet2d().cuda()
-    gauss_loss_func = GaussInitLoss2d(scale, kernel_size).cuda()
-    assert gauss_loss_func.gauss_kernel.shape == (1, 1, kernel_size, 1) 
-    gauss_loss = gauss_loss_func(net2d, im2d)
-    print(gauss_loss)
+    kernel = torch.tensor([0.6, 0.1, 0.3], dtype=torch.float32)
+    center_loss_func = CenterLoss(len(kernel))
+    center_loss = center_loss_func(kernel)
+    assert np.allclose(center_loss.item(), 0.09)
 
 
 if __name__ == '__main__':
