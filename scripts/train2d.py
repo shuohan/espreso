@@ -66,6 +66,8 @@ lrd_optim = Adam(lrd.parameters(), lr=1e-3)
 
 print(kn)
 print(lrd)
+print(kn_optim)
+print(lrd_optim)
 
 hr_patch_size = pad_patch_size(config.patch_size, kn.calc_input_size_reduce())
 hr_patches = Patches(image, hr_patch_size).cuda()
@@ -74,27 +76,31 @@ lr_patches = Patches(image, config.patch_size, x=2, y=1, z=0,
                      scale_factor=config.scale_factor).cuda()
 lr_loader = lr_patches.get_dataloader(config.batch_size)
 
-trainer = TrainerHRtoLR(kn, lrd, init_optim, kn_optim, lrd_optim, hr_loader,
-                        lr_loader, init_kernel_type='impulse')
-init_queue = DataQueue(['init_loss'])
-init_im_saver = ImageSaver(init_im_output,
-                           attrs=['hr', 'blur', 'ref', 'lrd_pred_real',
-                                  'lrd_pred_fake'],
-                           step=config.image_save_step, save_type='png',
-                           file_struct='epoch/sample')
-init_kernel_saver = KernelSaver(init_kernel_output, step=config.image_save_step,
-                                save_init=True)
+trainer = TrainerHRtoLR(kn, lrd, kn_optim, lrd_optim, hr_loader,
+                        lr_loader, init_kernel_type='impulse',
+                        init_optim=init_optim)
 printer = EpochPrinter(print_sep=False)
-init_queue.register(printer)
-trainer.register(init_queue)
-trainer.register(init_im_saver)
-trainer.register(init_kernel_saver)
 
-# trainer.train(init_kernel=True)
+if config.init_kernel:
+    init_queue = DataQueue(['init_loss'])
+    init_im_saver = ImageSaver(init_im_output,
+                               attrs=['hr', 'blur', 'ref', 'lrd_pred_real',
+                                      'lrd_pred_fake'],
+                               step=config.image_save_step, save_type='png',
+                               file_struct='epoch/sample')
+    init_kernel_saver = KernelSaver(init_kernel_output,
+                                    step=config.image_save_step,
+                                    save_init=True)
+    init_queue.register(printer)
+    trainer.register(init_queue)
+    trainer.register(init_im_saver)
+    trainer.register(init_kernel_saver)
+    trainer.train(init_kernel=True)
 
-trainer.remove(init_queue)
-trainer.remove(init_im_saver)
-trainer.remove(init_kernel_saver)
+    trainer.remove(init_queue)
+    trainer.remove(init_im_saver)
+    trainer.remove(init_kernel_saver)
+
 queue = DataQueue(['kn_gan_loss', 'sum_loss', 'smoothness_loss', 'center_loss',
                    'kn_tot_loss', 'lrd_tot_loss'])
 im_saver = ImageSaver(im_output, attrs=['lr', 'hr', 'blur', 'alias',
@@ -107,5 +113,4 @@ queue.register(printer)
 trainer.register(queue)
 trainer.register(im_saver)
 trainer.register(kernel_saver)
-
 trainer.train(init_kernel=False)
