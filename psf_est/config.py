@@ -27,6 +27,7 @@ class Config(Config_):
         super().__init__()
         self.add_config('kn_num_channels', 256)
         self.add_config('kn_num_linears', 4)
+        self.add_config('kn_update_step', 5)
         self.add_config('kernel_avg_beta', 0.99)
         self.add_config('kernel_length', 21)
         self.add_config('lrd_num_convs', 5)

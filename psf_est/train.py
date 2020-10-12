@@ -14,65 +14,32 @@ from pytorch_trainer.utils import NamedData
 from pytorch_trainer.save import ThreadedSaver, ImageThread, SavePlot
 
 from .config import Config
-from .loss import GANLoss, SumLoss, SmoothnessLoss, CenterLoss
+from .loss import GANLoss, SmoothnessLoss, CenterLoss
+from .utils import calc_fwhm
 
 
-class InitKernelType(str, Enum):
-    """The type of kernel to initialize to.
-
-    Attributes:
-        IMPULSE (str): Initialize to an impulse function.
-        GAUSSIAN (str): Initialize to a Gaussian function.
-        RECT (str): Initialize to a rect function.
-        NONE (str): Do not initialize the kernel, i.e. the kernel is random.
+class SaveKernel(SavePlot):
+    """Saves the kernel to a .png and a .npy files.
 
     """
-    IMPULSE = 'impulse'
-    GAUSSIAN = 'guassian'
-    RECT = 'rect'
-    NONE = 'none'
+    def save(self, filename, kernel):
+        kernel = kernel.squeeze().numpy()
+        self._save_plot(filename, kernel)
+        self._save_npy(filename, kernel)
 
+    def _save_npy(self, filename, kernel):
+        filename = str(filename) + '.npy'
+        np.save(filename, kernel)
 
-def create_init_kernel(init_kernel_type, scale_factor, shape):
-    """Creates the kernel to initialize.
-
-    Args:
-        init_kernel_type (str or InitKernelType): The type of the
-            initialization.
-        scale_factor (float): The scale factor  (greater than 1).
-        shape (iterable[int]): The shape of the kernel.
-
-    """
-    init_kernel_type = InitKernelType(init_kernel_type)
-    if init_kernel_type is InitKernelType.IMPULSE:
-        kernel = torch.zeros(*shape, dtype=torch.float32)
-        kernel[:, :, shape[2]//2, ...] = 1
-    else:
-        raise NotImplementedError
-    return kernel
-
-
-class Save(SavePlot):
-    def save(self, filename, image):
-        print('save')
-        filename = str(filename)
-        if not filename.endswith('.png'):
-            filename = filename + '.png'
-        image = image.squeeze().numpy()
-        max = np.max(image)
-        indices = np.where(image > max / 2)[0]
-
+    def _save_plot(self, filename, kernel):
+        filename = str(filename) + '.png'
+        fwhm, left, right = calc_fwhm(kernel)
+        max_val = np.max(kernel)
         plt.cla()
-        plt.plot(image, '-o')
-
-        if len(indices) >= 2:
-            left = indices[0] - 0.5
-            right = indices[-1] + 0.5
-            print(left, right)
-            plt.plot([left, left], [0, max], 'k--')
-            plt.plot([right, right], [0, max], 'k--')
-            plt.text(left, 0, str(right - left))
-
+        plt.plot(kernel, '-o')
+        plt.plot([left, left], [0, max_val], 'k--')
+        plt.plot([right, right], [0, max_val], 'k--')
+        plt.text((left + right) / 2, max_val / 2, fwhm, ha='center')
         plt.grid(True)
         plt.tight_layout()
         plt.gcf().savefig(filename)
@@ -88,8 +55,8 @@ class KernelSaver(ThreadedSaver):
         Path(self.dirname).mkdir(parents=True, exist_ok=True)
 
     def _init_thread(self):
-        save_plot = Save()
-        return ImageThread(save_plot, self.queue)
+        save_kernel = SaveKernel()
+        return ImageThread(save_kernel, self.queue)
 
     def _check_subject_type(self, subject):
         assert isinstance(subject, TrainerHRtoLR)
@@ -104,49 +71,12 @@ class KernelSaver(ThreadedSaver):
         pattern = str(Path(self.dirname, pattern))
         filename = pattern % self.subject.epoch_ind
         self.queue.put(NamedData(filename, kernel))
-        
-        avg_kernel = self.subject.kernel_net.avg_kernel
+
+        avg_kernel = self.subject.kernel_net.avg_kernel.cpu()
         pattern = 'avg_epoch-%%0%dd' % len(str(self.subject.num_epochs))
         pattern = str(Path(self.dirname, pattern))
         filename = pattern % self.subject.epoch_ind
         self.queue.put(NamedData(filename, avg_kernel))
-
-
-class TrainerKernelInit(Trainer):
-    """Initializes the kernel using simulated HR and LR pairs.
-    
-    """
-    def __init__(self, kernel_net, optim, dataloader, init_type='impulse'):
-        super().__init__(Config().num_init_epochs)
-        self.kernel_net = kernel_net
-        self.optim = optim
-        self.dataloader = dataloader
-        self.init_type = init_type
-
-        raise NotImplementedError
-
-    def _init_kernel(self):
-        """Initializes the kernel."""
-        ref_kernel = self._create_init_kernel()
-        self.init_optim.zero_grad()
-        self._blur_cuda = self.kernel_net(self._hr_cuda)
-        self._ref_cuda = F.conv2d(self._hr_cuda, ref_kernel)
-        self.init_loss = self._init_loss_func(self._blur_cuda, self._ref_cuda)
-        self.init_loss.backward()
-        self.init_optim.step()
-
-    def _create_init_kernel(self):
-        """Creates the kernel to initialize to."""
-        shape = list(self.kernel_net.impulse.shape)
-        shape[2] = self.kernel_net.kernel_size
-        kernel_type = self.init_kernel_type
-        kernel = create_init_kernel(kernel_type, self.scale_factor, shape)
-        return kernel.cuda()
-
-    @property
-    def ref(self):
-        """Returns the blurred patches with a reference kernel on CPU."""
-        return self._ref_cuda.detach().cpu()
 
 
 class TrainerHRtoLR(Trainer):
@@ -184,6 +114,10 @@ class TrainerHRtoLR(Trainer):
         self._gan_loss_func = GANLoss().cuda()
         self._smoothness_loss_func = SmoothnessLoss().cuda()
         self._center_loss_func = CenterLoss(Config().kernel_length).cuda()
+        self.kn_gan_loss = np.nan
+        self.kn_tot_loss = np.nan
+        self.smoothness_loss = np.nan
+        self.center_loss = np.nan
 
         self._batch_ind = -1
 
@@ -265,8 +199,8 @@ class TrainerHRtoLR(Trainer):
         kernel = self.kernel_net.kernel_cuda
         self.smoothness_loss = self._smoothness_loss_func(kernel)
         self.center_loss = self._center_loss_func(kernel)
-        loss = loss + Config().smoothness_loss_weight * self.smoothness_loss
-        loss = loss + Config().center_loss_weight * self.center_loss
+        loss = Config().smoothness_loss_weight * self.smoothness_loss \
+             + Config().center_loss_weight * self.center_loss
         return loss
 
     def _train_lr_disc(self):
@@ -328,3 +262,75 @@ class TrainerHRtoLR(Trainer):
     def lrd_pred_fake(self):
         """Returns the :attr:`lr_disc` output of a generated patch."""
         return self._lrd_pred_fake.detach().cpu()
+
+
+class InitKernelType(str, Enum):
+    """The type of kernel to initialize to.
+
+    Attributes:
+        IMPULSE (str): Initialize to an impulse function.
+        GAUSSIAN (str): Initialize to a Gaussian function.
+        RECT (str): Initialize to a rect function.
+        NONE (str): Do not initialize the kernel, i.e. the kernel is random.
+
+    """
+    IMPULSE = 'impulse'
+    GAUSSIAN = 'guassian'
+    RECT = 'rect'
+    NONE = 'none'
+
+
+def create_init_kernel(init_kernel_type, scale_factor, shape):
+    """Creates the kernel to initialize.
+
+    Args:
+        init_kernel_type (str or InitKernelType): The type of the
+            initialization.
+        scale_factor (float): The scale factor  (greater than 1).
+        shape (iterable[int]): The shape of the kernel.
+
+    """
+    init_kernel_type = InitKernelType(init_kernel_type)
+    if init_kernel_type is InitKernelType.IMPULSE:
+        kernel = torch.zeros(*shape, dtype=torch.float32)
+        kernel[:, :, shape[2]//2, ...] = 1
+    else:
+        raise NotImplementedError
+    return kernel
+
+
+class TrainerKernelInit(Trainer):
+    """Initializes the kernel using simulated HR and LR pairs.
+
+    """
+    def __init__(self, kernel_net, optim, dataloader, init_type='impulse'):
+        super().__init__(Config().num_init_epochs)
+        self.kernel_net = kernel_net
+        self.optim = optim
+        self.dataloader = dataloader
+        self.init_type = init_type
+
+        raise NotImplementedError
+
+    def _init_kernel(self):
+        """Initializes the kernel."""
+        ref_kernel = self._create_init_kernel()
+        self.init_optim.zero_grad()
+        self._blur_cuda = self.kernel_net(self._hr_cuda)
+        self._ref_cuda = F.conv2d(self._hr_cuda, ref_kernel)
+        self.init_loss = self._init_loss_func(self._blur_cuda, self._ref_cuda)
+        self.init_loss.backward()
+        self.init_optim.step()
+
+    def _create_init_kernel(self):
+        """Creates the kernel to initialize to."""
+        shape = list(self.kernel_net.impulse.shape)
+        shape[2] = self.kernel_net.kernel_size
+        kernel_type = self.init_kernel_type
+        kernel = create_init_kernel(kernel_type, self.scale_factor, shape)
+        return kernel.cuda()
+
+    @property
+    def ref(self):
+        """Returns the blurred patches with a reference kernel on CPU."""
+        return self._ref_cuda.detach().cpu()

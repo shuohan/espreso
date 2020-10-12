@@ -50,9 +50,10 @@ class KernelNet(nn.Sequential):
 
     def update_kernel(self):
         """Updates the current kernel and calculates the moving average."""
+        beta = Config().kernel_avg_beta
         self._kernel_cuda = self._calc_kernel()
-        self.avg_kernel = (1 - self.beta) * self._kernel_cuda.detach() \
-            + self.beta * self._avg_kernel
+        self.avg_kernel = (1 - beta) * self._kernel_cuda.detach() \
+            + beta * self.avg_kernel
 
     @property
     def kernel_cuda(self):
