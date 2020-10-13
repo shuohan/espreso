@@ -43,3 +43,4 @@ class Config(Config_):
         self.add_config('boundary_loss_weight', 0.5)
         self.add_config('weight_decay', 0)
         self.add_config('image_save_step', 100)
+        self.add_config('eval_step', 100)

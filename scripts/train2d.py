@@ -15,6 +15,8 @@ parser.add_argument('-ie', '--num-init-epochs', default=1000, type=int,
                     help='The number of iterations to initialize the kernel.')
 parser.add_argument('-iss', '--image-save-step', default=100, type=int,
                     help='The image saving step.')
+parser.add_argument('-k', '--true-kernel', default=None)
+parser.add_argument('-l', '--kernel-length', default=21, type=int)
 args = parser.parse_args()
 
 
@@ -28,11 +30,11 @@ import warnings
 from sssrlib.patches import Patches
 from sssrlib.transform import create_rot_flip
 from psf_est.config import Config
-from psf_est.train import TrainerHRtoLR, KernelSaver
+from psf_est.train import TrainerHRtoLR, KernelSaver, KernelEvaluator
 from psf_est.network import KernelNet2d, LowResDiscriminator2d
 from psf_est.utils import pad_patch_size
 
-from pytorch_trainer.log import DataQueue, EpochPrinter
+from pytorch_trainer.log import DataQueue, EpochPrinter, EpochLogger
 from pytorch_trainer.save import ImageSaver
 
 
@@ -42,8 +44,8 @@ args.output = Path(args.output)
 args.output.mkdir(parents=True, exist_ok=True)
 im_output = args.output.joinpath('patches')
 kernel_output = args.output.joinpath('kernel')
-init_im_output = args.output.joinpath('init_patches')
-init_kernel_output = args.output.joinpath('init_kernel')
+log_output = args.output.joinpath('loss.csv')
+eval_log_output = args.output.joinpath('eval_loss.csv')
 
 obj = nib.load(args.input)
 image = obj.get_fdata(dtype=np.float32)
@@ -79,6 +81,7 @@ trainer = TrainerHRtoLR(kn, lrd, kn_optim, lrd_optim, hr_loader, lr_loader)
 queue = DataQueue(['kn_gan_loss', 'smoothness_loss', 'center_loss',
                    'boundary_loss', 'kn_tot_loss', 'lrd_tot_loss'])
 printer = EpochPrinter(print_sep=False)
+logger = EpochLogger(log_output)
 attrs = ['lr', 'hr', 'blur', 'alias', 'lrd_pred_real', 'lrd_pred_fake',
          'lrd_pred_kn']
 im_saver = ImageSaver(im_output, attrs=attrs, step=config.image_save_step,
@@ -86,7 +89,20 @@ im_saver = ImageSaver(im_output, attrs=attrs, step=config.image_save_step,
                       save_init=False)
 kernel_saver = KernelSaver(kernel_output, step=config.image_save_step,
                            save_init=True)
+
+if args.true_kernel is not None:
+    true_kernel = np.load(args.true_kernel)
+    evaluator = KernelEvaluator(true_kernel, config.kernel_length).cuda()
+    eval_queue = DataQueue(['mae'])
+    eval_printer = EpochPrinter(print_sep=False)
+    eval_logger = EpochLogger(eval_log_output)
+    eval_queue.register(eval_printer)
+    eval_queue.register(eval_logger)
+    evaluator.register(eval_queue)
+    trainer.register(evaluator)
+
 queue.register(printer)
+queue.register(logger)
 trainer.register(queue)
 trainer.register(im_saver)
 trainer.register(kernel_saver)

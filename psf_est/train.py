@@ -9,7 +9,8 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 from enum import Enum
 
-from pytorch_trainer.train import Trainer, Validator, Evaluator
+from pytorch_trainer.observer import SubjectObserver
+from pytorch_trainer.train import Trainer
 from pytorch_trainer.utils import NamedData
 from pytorch_trainer.save import ThreadedSaver, ImageThread, SavePlot
 
@@ -77,6 +78,59 @@ class KernelSaver(ThreadedSaver):
         pattern = str(Path(self.dirname, pattern))
         filename = pattern % self.subject.epoch_ind
         self.queue.put(NamedData(filename, avg_kernel))
+
+
+class KernelEvaluator(SubjectObserver):
+    """Evaluates the difference between the esitmated and the true kernels.
+
+    """
+    def __init__(self, true_kernel, kernel_length):
+        super().__init__()
+        self.kernel_length = kernel_length
+        true_kernel = true_kernel.squeeze()
+        left_pad = (self.kernel_length - len(true_kernel)) // 2
+        right_pad = self.kernel_length - len(true_kernel) - left_pad
+        true_kernel = np.pad(true_kernel, (left_pad, right_pad))
+        self.true_kernel = torch.tensor(true_kernel)
+        self.mse = np.nan
+
+    def cuda(self):
+        self.true_kernel = self.true_kernel.cuda()
+        return self
+
+    def update_on_batch_end(self):
+        if self.epoch_ind % Config().eval_step == 0:
+            self._calc_mae()
+            self.notify_observers_on_batch_end()
+
+    def update_on_epoch_end(self):
+        if self.epoch_ind % Config().eval_step == 0:
+            self.notify_observers_on_epoch_end()
+
+    def _calc_mae(self):
+        est_kernel = self.subject.kernel_net.avg_kernel.squeeze()
+        with torch.no_grad():
+            self.mae = F.l1_loss(self.true_kernel, est_kernel)
+
+    @property
+    def batch_size(self):
+        return self.subject.batch_size
+
+    @property
+    def num_batches(self):
+        return self.subject.num_batches
+
+    @property
+    def num_epochs(self):
+        return self.subject.num_epochs
+
+    @property
+    def epoch_ind(self):
+        return self.subject.epoch_ind
+
+    @property
+    def batch_ind(self):
+        return self.subject.batch_ind
 
 
 class TrainerHRtoLR(Trainer):

@@ -10,7 +10,8 @@ data_dir=/data/phantom
 
 # image=/data/phantom/data/SUPERRES-ADNIPHANTOM_20200711_PHANTOM-T2-TSE-2D-CORONAL-PRE-ACQ1-04mm_resampled.nii
 image=/data/phantom/simu/SUPERRES-ADNIPHANTOM_20200711_PHANTOM-T2-TSE-3D-CORONAL-PRE-ACQ1-01mm_resampled_fwhm-8p0_scale-0p25.nii
-outdir=../tests/results_train2d/test_wd-0_bl
+outdir=../tests/results_train2d/test_wd-0_bl_kn-narrow-shallow
+kernel=/data/phantom/simu/SUPERRES-ADNIPHANTOM_20200711_PHANTOM-T2-TSE-3D-CORONAL-PRE-ACQ1-01mm_resampled_fwhm-8p0_scale-0p25_kernel.npy
 
 docker run --gpus device=1 --rm \
     -v $psf_est_dir:$psf_est_dir \
@@ -22,7 +23,7 @@ docker run --gpus device=1 --rm \
     --user $(id -u):$(id -g) \
     -e PYTHONPATH=$psf_est_dir:$sssrlib_dir:$proc_dir:$trainer_dir:$config_dir:$simu_dir \
     -w $psf_est_dir/scripts -t \
-    psf-est ./train2d.py -i $image -o $outdir
+    psf-est ./train2d.py -i $image -o $outdir -k $kernel -l 31
 
 
 # image=/data/phantom/data/SUPERRES-ADNIPHANTOM_20200711_PHANTOM-T2-TSE-2D-CORONAL-PRE-ACQ1-04mm_resampled.nii
