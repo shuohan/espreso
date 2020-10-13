@@ -44,18 +44,20 @@ im_output = args.output.joinpath('patches')
 kernel_output = args.output.joinpath('kernel')
 log_output = args.output.joinpath('loss.csv')
 eval_log_output = args.output.joinpath('eval_loss.csv')
+config_output = args.output.joinpath('config.json')
 
 obj = nib.load(args.input)
 image = obj.get_fdata(dtype=np.float32)
 if args.scale_factor is None:
     zooms = obj.header.get_zooms()
-    args.scale_factor = zooms[2] / zooms[0]
+    args.scale_factor = float(zooms[2] / zooms[0])
 
 config = Config()
 for key, value in args.__dict__.items():
     if hasattr(config, key):
         setattr(config, key, value)
 print(config)
+config.save_json(config_output)
 
 kn = KernelNet2d().cuda()
 lrd = LowResDiscriminator2d().cuda()
