@@ -11,8 +11,6 @@ parser.add_argument('-s', '--scale-factor', default=None, type=float,
                     help='Super resolution scale factor.')
 parser.add_argument('-e', '--num-epochs', default=10000, type=int,
                     help='The number of epochs (iterations).')
-parser.add_argument('-ie', '--num-init-epochs', default=1000, type=int,
-                    help='The number of iterations to initialize the kernel.')
 parser.add_argument('-iss', '--image-save-step', default=100, type=int,
                     help='The image saving step.')
 parser.add_argument('-k', '--true-kernel', default=None)

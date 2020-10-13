@@ -25,7 +25,7 @@ class Config(Config_):
     """
     def __init__(self):
         super().__init__()
-        self.add_config('kn_num_channels', 256)
+        self.add_config('kn_num_channels', 1024)
         self.add_config('kn_num_linears', 4)
         self.add_config('kn_update_step', 5)
         self.add_config('kernel_avg_beta', 0.99)
@@ -36,11 +36,11 @@ class Config(Config_):
         self.add_config('patch_size', (64, 64, 1))
         self.add_config('scale_factor', 1)
         self.add_config('batch_size', 32)
-        self.add_config('num_epochs', 1000)
+        self.add_config('num_epochs', 10000)
         self.add_config('num_init_epochs', 0)
-        self.add_config('smoothness_loss_weight', 1)
+        self.add_config('smoothness_loss_weight', 10)
         self.add_config('center_loss_weight', 1)
-        self.add_config('boundary_loss_weight', 0.5)
+        self.add_config('boundary_loss_weight', 1)
         self.add_config('weight_decay', 0)
         self.add_config('image_save_step', 100)
         self.add_config('eval_step', 100)

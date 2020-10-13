@@ -257,8 +257,11 @@ class TrainerHRtoLR(Trainer):
         self.smoothness_loss = self._smoothness_loss_func(kernel)
         self.center_loss = self._center_loss_func(kernel)
         self.boundary_loss = self._boundary_loss_func(kernel)
+        center_weight = Config().center_loss_weight
+        # step = center_weight / 2000
+        # center_weight = max(0, (2000 - self.epoch_ind) * step)
         loss = Config().smoothness_loss_weight * self.smoothness_loss \
-             + Config().center_loss_weight * self.center_loss \
+             + center_weight * self.center_loss \
              + Config().boundary_loss_weight * self.boundary_loss
         return loss
 
