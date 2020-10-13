@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 import torch.nn.functional as F
 
 from lr_simu.kernel import create_gaussian_kernel
@@ -53,7 +54,17 @@ class GANLoss(torch.nn.Module):
 
 
 class SmoothnessLoss(torch.nn.Module):
-    """L2 norm of derivative."""
+    r"""L2 norm of derivative.
+
+    This loss minimizes
+
+    .. math::
+
+        l = \lVert \nabla k \rVert_2^2,
+
+    where :math:`k` is the kernel, to encourage smoothness.
+
+    """
     def forward(self, kernel):
         device = kernel.device
         operator = torch.tensor([1, -1], dtype=torch.float32, device=device)
@@ -64,7 +75,19 @@ class SmoothnessLoss(torch.nn.Module):
 
 
 class CenterLoss(torch.nn.Module):
-    """Penalizes off-center."""
+    r"""Penalizes off-center.
+
+    This loss minimizes the differences between the center of the kernel and the
+    center of the vector:
+
+    .. math::
+
+        l = \left(\sum_x k(x) x - C \right) ^ 2,
+
+    where :math:`k(x)` is the kernel, :math:`x` is vector indices, and :math:`C`
+    is the center of the vector. Assume the sum of the kernel equals 1.
+
+    """
     def __init__(self, kernel_length):
         super().__init__()
         self.kernel_length = kernel_length
@@ -77,3 +100,35 @@ class CenterLoss(torch.nn.Module):
         kernel_center = torch.sum(kernel.squeeze() * self.locs)
         loss = F.mse_loss(kernel_center, self.center)
         return loss
+
+
+class BoundaryLoss(torch.nn.Module):
+    r"""Penalizes non-zero values at kernel boundary.
+
+    This loss minimizes the weighted sum:
+
+    .. math::
+
+        l = \sum_x | m(x) k(x) |
+
+    where :math:`m` is created from an inverted Gaussian function with the
+    center set to zero.
+
+    """
+    def __init__(self, kernel_length):
+        super().__init__()
+        self.kernel_length = kernel_length
+        mask = torch.tensor(self._create_penalty_mask()).float()
+        self.register_buffer('mask', mask[None, None, ..., None])
+
+    def _create_penalty_mask(self):
+        center = self.kernel_length // 2
+        locs = np.arange(self.kernel_length) - center
+        mask = np.exp(-locs ** 2 / (2 * self.kernel_length ** 2))
+        mask = 1 - mask / np.max(mask)
+        margin = (self.kernel_length - center) // 2 - 2
+        mask[margin:-margin] = 0
+        return 30 * mask
+
+    def forward(self, kernel):
+        return torch.sum(torch.abs(kernel * self.mask))

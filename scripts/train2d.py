@@ -77,7 +77,7 @@ lr_loader = lr_patches.get_dataloader(config.batch_size)
 
 trainer = TrainerHRtoLR(kn, lrd, kn_optim, lrd_optim, hr_loader, lr_loader)
 queue = DataQueue(['kn_gan_loss', 'smoothness_loss', 'center_loss',
-                   'kn_tot_loss', 'lrd_tot_loss'])
+                   'boundary_loss', 'kn_tot_loss', 'lrd_tot_loss'])
 printer = EpochPrinter(print_sep=False)
 attrs = ['lr', 'hr', 'blur', 'alias', 'lrd_pred_real', 'lrd_pred_fake',
          'lrd_pred_kn']

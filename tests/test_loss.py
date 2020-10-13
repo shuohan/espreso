@@ -3,7 +3,7 @@
 import numpy as np
 import torch
 
-from psf_est.loss import GANLoss, SmoothnessLoss, CenterLoss
+from psf_est.loss import GANLoss, SmoothnessLoss, CenterLoss, BoundaryLoss
 
 
 def test_loss():
@@ -28,6 +28,13 @@ def test_loss():
     center_loss_func = CenterLoss(len(kernel))
     center_loss = center_loss_func(kernel)
     assert np.allclose(center_loss.item(), 0.09)
+
+
+    kernel = -torch.arange(15)[None, None, ..., None]
+    boundary_loss_func = BoundaryLoss(len(kernel.squeeze()))
+    boundary_loss = boundary_loss_func(kernel)
+    ref = 0 * 0.10316994 + 1 * 0.07688365 + 14 * 0.10316994 + 13 * 0.07688365
+    assert np.round(boundary_loss, 4) == np.round(ref, 4)
 
 
 if __name__ == '__main__':

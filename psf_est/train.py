@@ -14,7 +14,7 @@ from pytorch_trainer.utils import NamedData
 from pytorch_trainer.save import ThreadedSaver, ImageThread, SavePlot
 
 from .config import Config
-from .loss import GANLoss, SmoothnessLoss, CenterLoss
+from .loss import GANLoss, SmoothnessLoss, CenterLoss, BoundaryLoss
 from .utils import calc_fwhm
 
 
@@ -96,6 +96,7 @@ class TrainerHRtoLR(Trainer):
         kn_tot_loss (torch.Tensor): The total loss for :attr:`kernel_net`.
         smoothness_loss (torch.Tensor): The kernel smoothness regularization.
         center_loss (torch.Tensor): The kernel center regularization.
+        boundary_loss (torch.Tensor): The kernel boundary regularization.
         lrd_tot_loss (torch.Tensor): The total loss for :attr:`lr_disc`.
 
     """
@@ -114,10 +115,12 @@ class TrainerHRtoLR(Trainer):
         self._gan_loss_func = GANLoss().cuda()
         self._smoothness_loss_func = SmoothnessLoss().cuda()
         self._center_loss_func = CenterLoss(Config().kernel_length).cuda()
+        self._boundary_loss_func = BoundaryLoss(Config().kernel_length).cuda()
         self.kn_gan_loss = np.nan
         self.kn_tot_loss = np.nan
         self.smoothness_loss = np.nan
         self.center_loss = np.nan
+        self.boundary_loss = np.nan
 
         self._batch_ind = -1
 
@@ -199,8 +202,10 @@ class TrainerHRtoLR(Trainer):
         kernel = self.kernel_net.kernel_cuda
         self.smoothness_loss = self._smoothness_loss_func(kernel)
         self.center_loss = self._center_loss_func(kernel)
+        self.boundary_loss = self._boundary_loss_func(kernel)
         loss = Config().smoothness_loss_weight * self.smoothness_loss \
-             + Config().center_loss_weight * self.center_loss
+             + Config().center_loss_weight * self.center_loss \
+             + Config().boundary_loss_weight * self.boundary_loss
         return loss
 
     def _train_lr_disc(self):
