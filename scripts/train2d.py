@@ -15,6 +15,8 @@ parser.add_argument('-iss', '--image-save-step', default=100, type=int,
                     help='The image saving step.')
 parser.add_argument('-k', '--true-kernel', default=None)
 parser.add_argument('-l', '--kernel-length', default=21, type=int)
+parser.add_argument('-na', '--no-aug', action='store_true')
+parser.add_argument('-w', '--num-workers', default=0, type=int)
 args = parser.parse_args()
 
 
@@ -71,11 +73,13 @@ print(kn_optim)
 print(lrd_optim)
 
 hr_patch_size = pad_patch_size(config.patch_size, kn.input_size_reduced)
-hr_patches = Patches(image, hr_patch_size).cuda()
-hr_loader = hr_patches.get_dataloader(config.batch_size)
+transforms = [] if args.no_aug else create_rot_flip()
+print('hr # transforms:', len(transforms))
+hr_patches = Patches(image, hr_patch_size, transforms=transforms).cuda()
+hr_loader = hr_patches.get_dataloader(config.batch_size, args.num_workers)
 lr_patches = Patches(image, config.patch_size, x=2, y=1, z=0,
                      scale_factor=config.scale_factor).cuda()
-lr_loader = lr_patches.get_dataloader(config.batch_size)
+lr_loader = lr_patches.get_dataloader(config.batch_size, args.num_workers)
 
 trainer = TrainerHRtoLR(kn, lrd, kn_optim, lrd_optim, hr_loader, lr_loader)
 queue = DataQueue(['kn_gan_loss', 'smoothness_loss', 'center_loss',

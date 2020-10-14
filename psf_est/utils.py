@@ -15,6 +15,7 @@ def pad_patch_size(patch_size, reduced):
     """
     patch_size = list(patch_size)
     patch_size[0] = patch_size[0] + reduced
+    patch_size[1] = patch_size[1] + reduced
     return patch_size
 
 
