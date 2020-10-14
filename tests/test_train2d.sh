@@ -22,7 +22,7 @@ docker run --gpus device=1 --rm \
     --user $(id -u):$(id -g) \
     -e PYTHONPATH=$psf_est_dir:$sssrlib_dir:$proc_dir:$trainer_dir:$config_dir:$simu_dir \
     -w $psf_est_dir/scripts -t \
-    psf-est ./train2d.py -i $image -o $outdir -l 21
+    psf-est ./train2d.py -i $image -o $outdir -l 21 -z 0
 
 # image=/data/phantom/simu/SUPERRES-ADNIPHANTOM_20200711_PHANTOM-T2-TSE-3D-CORONAL-PRE-ACQ1-01mm_resampled_fwhm-8p0_scale-0p25_len-21.nii
 # outdir=../tests/results_train2d/simu_fwhm-8p0_scale-0p25_len-21_no-aug

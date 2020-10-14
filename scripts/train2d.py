@@ -17,6 +17,7 @@ parser.add_argument('-k', '--true-kernel', default=None)
 parser.add_argument('-l', '--kernel-length', default=21, type=int)
 parser.add_argument('-na', '--no-aug', action='store_true')
 parser.add_argument('-w', '--num-workers', default=0, type=int)
+parser.add_argument('-z', '--z-axis', default=2, type=int)
 args = parser.parse_args()
 
 
@@ -24,7 +25,7 @@ import nibabel as nib
 import numpy as np
 from pathlib import Path
 from torch.optim import Adam
-from torch.utils.data import DataLoader, WeightedRandomSampler                  
+from torch.utils.data import DataLoader, WeightedRandomSampler
 import warnings
 
 from sssrlib.patches import Patches
@@ -48,11 +49,17 @@ log_output = args.output.joinpath('loss.csv')
 eval_log_output = args.output.joinpath('eval_loss.csv')
 config_output = args.output.joinpath('config.json')
 
+xy = [0, 1, 2]
+xy.remove(args.z_axis)
 obj = nib.load(args.input)
 image = obj.get_fdata(dtype=np.float32)
 if args.scale_factor is None:
     zooms = obj.header.get_zooms()
-    args.scale_factor = float(zooms[2] / zooms[0])
+    args.scale_factor = float(zooms[args.z_axis] / zooms[xy[0]])
+    if zooms[xy[0]] != zooms[xy[1]] and not args.no_aug:
+        raise RuntimeError('The resolutions of x and y are different.')
+if args.scale_factor < 1:
+    raise RuntimeError('Scale factor should be greater or equal to 1.')
 
 config = Config()
 for key, value in args.__dict__.items():
@@ -74,12 +81,20 @@ print(lrd_optim)
 
 hr_patch_size = pad_patch_size(config.patch_size, kn.input_size_reduced)
 transforms = [] if args.no_aug else create_rot_flip()
-print('hr # transforms:', len(transforms))
-hr_patches = Patches(image, hr_patch_size, transforms=transforms).cuda()
+hr_patches = Patches(image, hr_patch_size, transforms=transforms,
+                     x=xy[0], y=xy[1], z=args.z_axis).cuda()
 hr_loader = hr_patches.get_dataloader(config.batch_size, args.num_workers)
-lr_patches = Patches(image, config.patch_size, x=2, y=1, z=0,
+lr_patches = Patches(image, config.patch_size, x=args.z_axis, y=xy[1], z=xy[0],
                      scale_factor=config.scale_factor).cuda()
 lr_loader = lr_patches.get_dataloader(config.batch_size, args.num_workers)
+
+print('HR patches')
+print('----------')
+print(hr_patches)
+print()
+print('LR patches')
+print('----------')
+print(lr_patches)
 
 trainer = TrainerHRtoLR(kn, lrd, kn_optim, lrd_optim, hr_loader, lr_loader)
 queue = DataQueue(['kn_gan_loss', 'smoothness_loss', 'center_loss',
