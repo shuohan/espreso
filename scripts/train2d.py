@@ -28,7 +28,7 @@ from torch.optim import Adam
 from torch.utils.data import DataLoader, WeightedRandomSampler
 import warnings
 
-from sssrlib.patches import Patches
+from sssrlib.patches import Patches, PatchesOr
 from sssrlib.transform import create_rot_flip
 from psf_est.config import Config
 from psf_est.train import TrainerHRtoLR, KernelSaver, KernelEvaluator
@@ -84,8 +84,16 @@ transforms = [] if args.no_aug else create_rot_flip()
 hr_patches = Patches(image, hr_patch_size, transforms=transforms,
                      x=xy[0], y=xy[1], z=args.z_axis).cuda()
 hr_loader = hr_patches.get_dataloader(config.batch_size, args.num_workers)
-lr_patches = Patches(image, config.patch_size, x=args.z_axis, y=xy[1], z=xy[0],
-                     scale_factor=config.scale_factor).cuda()
+
+if args.no_aug:
+    lr_patches = Patches(image, config.patch_size, x=args.z_axis, y=xy[1],
+                         z=xy[0], scale_factor=config.scale_factor).cuda()
+else:
+    lr_patches_xy = Patches(image, config.patch_size, x=args.z_axis, y=xy[1],
+                            z=xy[0], scale_factor=config.scale_factor).cuda()
+    lr_patches_yx = Patches(image, config.patch_size, x=args.z_axis, y=xy[0],
+                            z=xy[1], scale_factor=config.scale_factor).cuda()
+    lr_patches = PatchesOr(lr_patches_xy, lr_patches_yx)
 lr_loader = lr_patches.get_dataloader(config.batch_size, args.num_workers)
 
 print('HR patches')
