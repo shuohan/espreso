@@ -226,10 +226,10 @@ class TrainerHRtoLR(Trainer):
 
     def _train_on_batch(self):
         """Trains the networks using a pair of HR and LR data."""
+        self._train_lr_disc()
         if self.epoch_ind % Config().kn_update_step == 0:
             self._train_kernel_net()
             self.kernel_net.update_kernel()
-        self._train_lr_disc()
 
     def _train_kernel_net(self):
         """Trains the generator :attr:`kernel_net`."""
