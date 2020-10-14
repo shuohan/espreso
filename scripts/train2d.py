@@ -21,6 +21,7 @@ parser.add_argument('-z', '--z-axis', default=2, type=int)
 args = parser.parse_args()
 
 
+import os
 import nibabel as nib
 import numpy as np
 from pathlib import Path
@@ -65,6 +66,8 @@ config = Config()
 for key, value in args.__dict__.items():
     if hasattr(config, key):
         setattr(config, key, value)
+config.add_config('input_image', os.path.abspath(str(args.input)))
+config.add_config('output_dirname', os.path.abspath(str(args.output)))
 print(config)
 config.save_json(config_output)
 
