@@ -8,7 +8,7 @@ def calc_patch_size(patch_size, scale_factor, nz):
     """Calculates the patch size.
 
     Args:
-        patch_size (int): The size of the patches.
+        patch_size (int): The size of the low-resolution patches.
         scale_factor (float): The scale factor > 1.
         nz (int): The size of low-resolution direction.
 
@@ -20,9 +20,7 @@ def calc_patch_size(patch_size, scale_factor, nz):
         The calculated low-resolution patch size.
 
     """
-    image = torch.rand(1, 1, patch_size, patch_size).float()
-    down = interpolate(image, scale_factor=1/scale_factor, mode='bilinear')
-    lr_patch_size = np.minimum(down.shape[2], nz)
+    lr_patch_size = np.minimum(patch_size, nz)
     image = torch.rand(1, 1, lr_patch_size, lr_patch_size).float()
     up = interpolate(image, scale_factor=scale_factor, mode='bilinear')
     hr_patch_size = up.shape[2]

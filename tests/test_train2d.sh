@@ -28,7 +28,7 @@ image=/data/phantom/simu/SUPERRES-ADNIPHANTOM_20200711_PHANTOM-T2-TSE-3D-CORONAL
 outdir=../tests/results_train2d/simu_fwhm-8p0_scale-1p0_len-13_no-up
 kernel=/data/phantom/simu/SUPERRES-ADNIPHANTOM_20200711_PHANTOM-T2-TSE-3D-CORONAL-PRE-ACQ1-01mm_resampled_fwhm-8p0_scale-1p0_len-13_kernel.npy
 
-docker run --gpus device=1 --rm \
+docker run --gpus device=0 --rm \
     -v $psf_est_dir:$psf_est_dir \
     -v $sssrlib_dir:$sssrlib_dir \
     -v $proc_dir:$proc_dir \
