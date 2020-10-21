@@ -34,7 +34,7 @@ from sssrlib.transform import create_rot_flip
 from psf_est.config import Config
 from psf_est.train import TrainerHRtoLR, KernelSaver, KernelEvaluator
 from psf_est.network import KernelNet2d, LowResDiscriminator2d
-from psf_est.utils import pad_patch_size
+from psf_est.utils import calc_patch_size
 
 from pytorch_trainer.log import DataQueue, EpochPrinter, EpochLogger
 from pytorch_trainer.save import ImageSaver
@@ -63,13 +63,14 @@ if args.scale_factor < 1:
     raise RuntimeError('Scale factor should be greater or equal to 1.')
 
 config = Config()
+nz = image.shape[args.z_axis]
+hr_ps, lr_ps= calc_patch_size(config.patch_size, args.scale_factor, nz)
+
 for key, value in args.__dict__.items():
     if hasattr(config, key):
         setattr(config, key, value)
 config.add_config('input_image', os.path.abspath(str(args.input)))
 config.add_config('output_dirname', os.path.abspath(str(args.output)))
-print(config)
-config.save_json(config_output)
 
 kn = KernelNet2d().cuda()
 lrd = LowResDiscriminator2d().cuda()
@@ -77,25 +78,28 @@ kn_optim = Adam(kn.parameters(), lr=2e-4, betas=(0.5, 0.999),
                 weight_decay=config.weight_decay)
 lrd_optim = Adam(lrd.parameters(), lr=2e-4, betas=(0.5, 0.999))
 
+hr_ps = hr_ps + kn.input_size_reduced
+config.add_config('hr_patch_size', hr_ps)
+config.add_config('lr_patch_size', lr_ps)
+
+print(config)
+config.save_json(config_output)
+
 print(kn)
 print(lrd)
 print(kn_optim)
 print(lrd_optim)
 
-hr_patch_size = pad_patch_size(config.patch_size, kn.input_size_reduced)
 transforms = [] if args.no_aug else create_rot_flip()
-hr_patches = Patches(image, hr_patch_size, transforms=transforms,
+hr_patches = Patches(image, (hr_ps, hr_ps, 1), transforms=transforms,
                      x=xy[0], y=xy[1], z=args.z_axis).cuda()
 hr_loader = hr_patches.get_dataloader(config.batch_size, args.num_workers)
 
 if args.no_aug:
-    lr_patches = Patches(image, config.patch_size, x=args.z_axis, y=xy[1],
-                         z=xy[0], scale_factor=config.scale_factor).cuda()
+    lr_patches = Patches(image, (lr_ps, hr_ps, 1), x=args.z_axis, y=xy[1], z=xy[0]).cuda()
 else:
-    lr_patches_xy = Patches(image, config.patch_size, x=args.z_axis, y=xy[1],
-                            z=xy[0], scale_factor=config.scale_factor).cuda()
-    lr_patches_yx = Patches(image, config.patch_size, x=args.z_axis, y=xy[0],
-                            z=xy[1], scale_factor=config.scale_factor).cuda()
+    lr_patches_xy = Patches(image, (lr_ps, hr_ps, 1), x=args.z_axis, y=xy[1], z=xy[0]).cuda()
+    lr_patches_yx = Patches(image, (lr_ps, hr_ps, 1), x=args.z_axis, y=xy[0], z=xy[1]).cuda()
     lr_patches = PatchesOr(lr_patches_xy, lr_patches_yx)
 lr_loader = lr_patches.get_dataloader(config.batch_size, args.num_workers)
 

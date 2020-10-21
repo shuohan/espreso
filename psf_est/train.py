@@ -164,7 +164,7 @@ class TrainerHRtoLR(Trainer):
         self.hr_loader = hr_loader
         self.lr_loader = lr_loader
         self._check_data_loader_shapes()
-        self.scale_factor = lr_loader.dataset.scale_factor
+        self.scale_factor = Config().scale_factor
 
         self._gan_loss_func = GANLoss().cuda()
         self._smoothness_loss_func = SmoothnessLoss().cuda()
@@ -175,6 +175,7 @@ class TrainerHRtoLR(Trainer):
         self.smoothness_loss = np.nan
         self.center_loss = np.nan
         self.boundary_loss = np.nan
+        self.lrd_tot_loss = np.nan
 
         self._batch_ind = -1
 
@@ -226,7 +227,8 @@ class TrainerHRtoLR(Trainer):
 
     def _train_on_batch(self):
         """Trains the networks using a pair of HR and LR data."""
-        self._train_lr_disc()
+        if self.epoch_ind % Config().lrd_update_step == 0:
+            self._train_lr_disc()
         if self.epoch_ind % Config().kn_update_step == 0:
             self._train_kernel_net()
             self.kernel_net.update_kernel()
@@ -246,9 +248,9 @@ class TrainerHRtoLR(Trainer):
         """Creates aliasing on patches."""
         mode = 'linear' if patches.dim() == 3 else 'bilinear'
         down_scale = [1 / self.scale_factor, 1]
-        up_scale = [self.scale_factor, 1]
         results = F.interpolate(patches, scale_factor=down_scale, mode=mode)
-        results = F.interpolate(results, scale_factor=up_scale, mode=mode)
+        # up_scale = [self.scale_factor, 1]
+        # results = F.interpolate(results, scale_factor=up_scale, mode=mode)
         return results
 
     def _calc_reg(self):

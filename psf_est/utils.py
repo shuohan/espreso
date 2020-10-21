@@ -1,22 +1,32 @@
+import torch
 import numpy as np
 from scipy.interpolate import interp1d
+from torch.nn.functional import interpolate
 
 
-def pad_patch_size(patch_size, reduced):
-    """Pads the patch size to account for size change in conv.
+def calc_patch_size(patch_size, scale_factor, nz):
+    """Calculates the patch size.
 
     Args:
-        patch_size (iterable[int]): The patch size to pad.
-        reduced (int): The number of pixels to pad.
+        patch_size (int): The size of the low-resolution patches.
+        scale_factor (float): The scale factor > 1.
+        nz (int): The size of low-resolution direction.
 
-    Returns:
-        list[int]: The padded patch size.
+    Returns
+    -------
+    hr_patch_size: int
+        The calculated high-resolution patch size.
+    lr_patch_size: int
+        The calculated low-resolution patch size.
 
     """
-    patch_size = list(patch_size)
-    patch_size[0] = patch_size[0] + reduced
-    patch_size[1] = patch_size[1] + reduced
-    return patch_size
+    lr_patch_size = np.minimum(patch_size, nz)
+    image = torch.rand(1, 1, lr_patch_size, lr_patch_size).float()
+    up = interpolate(image, scale_factor=scale_factor, mode='bilinear')
+    hr_patch_size = up.shape[2]
+    down = interpolate(up, scale_factor=1/scale_factor, mode='bilinear')
+    lr_patch_size = down.shape[2]
+    return hr_patch_size, lr_patch_size
 
 
 def calc_fwhm(kernel):
@@ -37,7 +47,7 @@ def calc_fwhm(kernel):
     """
     kernel = kernel.squeeze()
     half_max = float(np.max(kernel)) / 2
-    indices = np.where(kernel > half_max)[0] 
+    indices = np.where(kernel > half_max)[0]
     left = indices[0]
     if left > 0:
         interp = interp1d((kernel[left-1], kernel[left]), (left - 1, left))

@@ -131,7 +131,7 @@ class LowResDiscriminator1d(LowResDiscriminator):
 
     """
     def _create_conv(self, in_ch, out_ch):
-        return nn.Conv1d(in_ch, out_ch, 4, stride=1, padding=0, bias=True)
+        return nn.Conv1d(in_ch, out_ch, 3, stride=1, padding=0, bias=True)
 
 
 class LowResDiscriminator2d(LowResDiscriminator):
@@ -139,4 +139,4 @@ class LowResDiscriminator2d(LowResDiscriminator):
 
     """
     def _create_conv(self, in_ch, out_ch):
-        return nn.Conv2d(in_ch, out_ch, (4, 1), stride=1, padding=0, bias=True)
+        return nn.Conv2d(in_ch, out_ch, (3, 1), stride=1, padding=0, bias=True)
