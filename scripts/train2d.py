@@ -5,7 +5,7 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('-i', '--input', help='Input image.')
 parser.add_argument('-o', '--output', help='Output directory.')
-parser.add_argument('-b', '--batch-size', default=32, type=int,
+parser.add_argument('-bs', '--batch-size', default=32, type=int,
                     help='The number of samples per mini-batch.')
 parser.add_argument('-s', '--scale-factor', default=None, type=float,
                     help='Super resolution scale factor.')
@@ -19,6 +19,8 @@ parser.add_argument('-na', '--no-aug', action='store_true')
 parser.add_argument('-w', '--num-workers', default=0, type=int)
 parser.add_argument('-z', '--z-axis', default=2, type=int)
 parser.add_argument('-isz', '--image-save-zoom', default=1, type=int)
+parser.add_argument('-sw', '--smoothness-loss-weight', default=0, type=float)
+parser.add_argument('-b', '--kernel-avg-beta', default=0.99, type=float)
 args = parser.parse_args()
 
 

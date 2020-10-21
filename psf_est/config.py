@@ -39,7 +39,7 @@ class Config(Config_):
         self.add_config('batch_size', 32)
         self.add_config('num_epochs', 10000)
         self.add_config('num_init_epochs', 0)
-        self.add_config('smoothness_loss_weight', 1)
+        self.add_config('smoothness_loss_weight', 1e-5)
         self.add_config('center_loss_weight', 1)
         self.add_config('boundary_loss_weight', 1)
         self.add_config('weight_decay', 0)
