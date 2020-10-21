@@ -18,6 +18,7 @@ parser.add_argument('-l', '--kernel-length', default=21, type=int)
 parser.add_argument('-na', '--no-aug', action='store_true')
 parser.add_argument('-w', '--num-workers', default=0, type=int)
 parser.add_argument('-z', '--z-axis', default=2, type=int)
+parser.add_argument('-isz', '--image-save-zoom', default=1, type=int)
 args = parser.parse_args()
 
 
@@ -116,11 +117,19 @@ queue = DataQueue(['kn_gan_loss', 'smoothness_loss', 'center_loss',
                    'boundary_loss', 'kn_tot_loss', 'lrd_tot_loss'])
 printer = EpochPrinter(print_sep=False)
 logger = EpochLogger(log_output)
-attrs = ['lr', 'hr', 'blur', 'alias', 'lrd_pred_real', 'lrd_pred_fake',
-         'lrd_pred_kn']
+
+attrs = ['lr', 'hr', 'blur', 'alias']
 im_saver = ImageSaver(im_output, attrs=attrs, step=config.image_save_step,
-                      file_struct='epoch/sample', save_type='png',
-                      save_init=False)
+                      file_struct='epoch/sample', save_type='png_norm',
+                      save_init=False, prefix='patch',
+                      zoom=config.image_save_zoom, ordered=True)
+
+attrs = ['lrd_pred_real', 'lrd_pred_fake', 'lrd_pred_kn']
+pred_saver = ImageSaver(im_output, attrs=attrs, step=config.image_save_step,
+                        file_struct='epoch/sample', save_type='png',
+                        image_type='sigmoid', save_init=False, prefix='lrd',
+                        zoom=config.image_save_zoom, ordered=True)
+
 kernel_saver = KernelSaver(kernel_output, step=config.image_save_step,
                            save_init=True)
 
@@ -139,5 +148,6 @@ queue.register(printer)
 queue.register(logger)
 trainer.register(queue)
 trainer.register(im_saver)
+trainer.register(pred_saver)
 trainer.register(kernel_saver)
 trainer.train()

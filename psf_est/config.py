@@ -34,7 +34,7 @@ class Config(Config_):
         self.add_config('lrd_num_convs', 6)
         self.add_config('lrd_num_channels', 32)
         self.add_config('lrelu_neg_slope', 0.1)
-        self.add_config('patch_size', 64)
+        self.add_config('patch_size', 20)
         self.add_config('scale_factor', 1)
         self.add_config('batch_size', 32)
         self.add_config('num_epochs', 10000)
@@ -45,3 +45,4 @@ class Config(Config_):
         self.add_config('weight_decay', 0)
         self.add_config('image_save_step', 100)
         self.add_config('eval_step', 100)
+        self.add_config('image_save_zoom', 1)
