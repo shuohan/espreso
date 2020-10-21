@@ -41,7 +41,7 @@ class Config(Config_):
         self.add_config('num_init_epochs', 0)
         self.add_config('smoothness_loss_weight', 1e-5)
         self.add_config('center_loss_weight', 1)
-        self.add_config('boundary_loss_weight', 1)
+        self.add_config('boundary_loss_weight', 10)
         self.add_config('weight_decay', 0)
         self.add_config('image_save_step', 100)
         self.add_config('eval_step', 100)
