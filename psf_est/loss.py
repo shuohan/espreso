@@ -70,7 +70,7 @@ class SmoothnessLoss(torch.nn.Module):
         operator = torch.tensor([1, -1], dtype=torch.float32, device=device)
         operator = operator[None, None, ..., None]
         derivative = F.conv2d(kernel, operator)
-        loss = torch.sum(derivative ** 2)
+        loss = torch.sqrt(torch.sum(derivative ** 2))
         return loss
 
 
