@@ -20,6 +20,7 @@ parser.add_argument('-w', '--num-workers', default=0, type=int)
 parser.add_argument('-z', '--z-axis', default=2, type=int)
 parser.add_argument('-isz', '--image-save-zoom', default=1, type=int)
 parser.add_argument('-sw', '--smoothness-loss-weight', default=0, type=float)
+parser.add_argument('-bw', '--boundary-loss-weight', default=10, type=float)
 parser.add_argument('-b', '--kernel-avg-beta', default=0.99, type=float)
 args = parser.parse_args()
 
@@ -77,9 +78,9 @@ config.add_config('output_dirname', os.path.abspath(str(args.output)))
 
 kn = KernelNet2d().cuda()
 lrd = LowResDiscriminator2d().cuda()
-kn_optim = Adam(kn.parameters(), lr=2e-4, betas=(0.5, 0.999),
+kn_optim = Adam(kn.parameters(), lr=1e-4, betas=(0.5, 0.999),
                 weight_decay=config.weight_decay)
-lrd_optim = Adam(lrd.parameters(), lr=2e-4, betas=(0.5, 0.999))
+lrd_optim = Adam(lrd.parameters(), lr=1e-4, betas=(0.5, 0.999))
 
 hr_ps = hr_ps + kn.input_size_reduced
 config.add_config('hr_patch_size', hr_ps)

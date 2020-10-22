@@ -126,9 +126,11 @@ class BoundaryLoss(torch.nn.Module):
         locs = np.arange(self.kernel_length) - center
         mask = np.exp(-locs ** 2 / (2 * self.kernel_length ** 2))
         mask = 1 - mask / np.max(mask)
-        margin = (self.kernel_length - center) // 2 - 2
-        mask[margin:-margin] = 0
-        return 30 * mask
+        # margin = (self.kernel_length - center) // 2 - 2
+        masks = torch.ones(self.kernel_length).float()
+        mask[2:-2] = 0
+        print(mask)
+        return mask
 
     def forward(self, kernel):
         return torch.sum(torch.abs(kernel * self.mask))

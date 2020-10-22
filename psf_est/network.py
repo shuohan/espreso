@@ -6,6 +6,15 @@ import torch.nn.functional as F
 from .config import Config
 
 
+class Clamp(nn.Module):
+    def __init__(self, min, max):
+        super().__init__()
+        self.min = min
+        self.max = max
+    def forward(self, x):
+        return torch.clamp(x, self.min, self.max)
+
+
 class KernelNet(nn.Sequential):
     """The network outputs a 1D blur kernel to estimate slice selection.
 
@@ -15,11 +24,11 @@ class KernelNet(nn.Sequential):
         config = Config()
 
         self.input_weight = nn.Parameter(torch.zeros(1, config.kn_num_channels))
-        self.input_relu = nn.ReLU6()
+        self.input_clamp = Clamp(-3, 3)
         for i in range(config.kn_num_linears - 1):
             linear = nn.Linear(config.kn_num_channels, config.kn_num_channels)
             self.add_module('linear%d' % i, linear)
-            self.add_module('relu%d' % i, nn.ReLU6())
+            self.add_module('relu%d' % i, Clamp(-3, 3))
         linear = nn.Linear(config.kn_num_channels, config.kernel_length)
         self.add_module('linear%d' % (config.kn_num_linears - 1), linear)
         self.softmax = nn.Softmax(dim=1)
@@ -38,7 +47,7 @@ class KernelNet(nn.Sequential):
 
     def _calc_kernel(self):
         """Calculates the current kernel."""
-        kernel = self.input_relu(self.input_weight)
+        kernel = self.input_clamp(self.input_weight)
         for module in self:
             kernel = module(kernel)
         kernel = self._reshape_kernel(kernel)
@@ -131,7 +140,7 @@ class LowResDiscriminator1d(LowResDiscriminator):
 
     """
     def _create_conv(self, in_ch, out_ch):
-        return nn.Conv1d(in_ch, out_ch, 3, stride=1, padding=0, bias=True)
+        return nn.Conv1d(in_ch, out_ch, 4, stride=1, padding=0, bias=True)
 
 
 class LowResDiscriminator2d(LowResDiscriminator):
@@ -139,4 +148,4 @@ class LowResDiscriminator2d(LowResDiscriminator):
 
     """
     def _create_conv(self, in_ch, out_ch):
-        return nn.Conv2d(in_ch, out_ch, (3, 1), stride=1, padding=0, bias=True)
+        return nn.Conv2d(in_ch, out_ch, (4, 1), stride=1, padding=0, bias=True)
