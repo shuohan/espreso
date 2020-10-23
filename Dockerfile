@@ -5,5 +5,6 @@ RUN pip install git+https://github.com/shuohan/pytorchviz.git
 RUN pip install git+https://github.com/shuohan/singleton-config.git
 RUN pip install graphviz
 RUN pip install sphinx sphinx-rtd-theme
+RUN pip install pandas
 ENV MPLCONFIGDIR=/tmp/matplotlib
 CMD ["bash"]
