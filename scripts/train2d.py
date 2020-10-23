@@ -61,8 +61,8 @@ image = obj.get_fdata(dtype=np.float32)
 if args.scale_factor is None:
     zooms = obj.header.get_zooms()
     args.scale_factor = float(zooms[args.z_axis] / zooms[xy[0]])
-    if zooms[xy[0]] != zooms[xy[1]] and not args.no_aug:
-        raise RuntimeError('The resolutions of x and y are different.')
+    # if zooms[xy[0]] != zooms[xy[1]] and not args.no_aug:
+    #     raise RuntimeError('The resolutions of x and y are different.')
 if args.scale_factor < 1:
     raise RuntimeError('Scale factor should be greater or equal to 1.')
 
