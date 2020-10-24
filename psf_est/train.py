@@ -246,8 +246,8 @@ class TrainerHRtoLR(Trainer):
 
     def _create_aliasing(self, patches):
         """Creates aliasing on patches."""
-        mode = 'linear' if patches.dim() == 3 else 'bicubic'
         down_scale = [1 / self.scale_factor, 1]
+        mode = Config().interp_mode
         results = F.interpolate(patches, scale_factor=down_scale, mode=mode)
         # up_scale = [self.scale_factor, 1]
         # results = F.interpolate(results, scale_factor=up_scale, mode=mode)

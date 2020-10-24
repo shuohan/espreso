@@ -122,12 +122,12 @@ class BoundaryLoss(torch.nn.Module):
         self.register_buffer('mask', mask[None, None, ..., None])
 
     def _create_penalty_mask(self):
-        center = self.kernel_length // 2
-        locs = np.arange(self.kernel_length) - center
-        mask = np.exp(-locs ** 2 / (2 * self.kernel_length ** 2))
-        mask = 1 - mask / np.max(mask)
+        # center = self.kernel_length // 2
+        # locs = np.arange(self.kernel_length) - center
+        # mask = np.exp(-locs ** 2 / (2 * self.kernel_length ** 2))
+        # mask = 1 - mask / np.max(mask)
         # margin = (self.kernel_length - center) // 2 - 2
-        masks = torch.ones(self.kernel_length).float()
+        mask = torch.ones(self.kernel_length).float()
         mask[2:-2] = 0
         print(mask)
         return mask
