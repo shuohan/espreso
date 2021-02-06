@@ -6,6 +6,7 @@ RUN pip install scipy==1.5.2 \
                 pandas==1.1.3 \
                 sphinx==3.2.1 \
                 sphinx-rtd-theme==0.5.0 \
+                git+https://github.com/shuohan/ssp@0.1.0 \
                 git+https://github.com/shuohan/pytorch-trainer@0.1.1 \
                 git+https://github.com/shuohan/sssrlib@0.1.1 \
                 git+https://github.com/shuohan/improc3d@0.5.0 \
