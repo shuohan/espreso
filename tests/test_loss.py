@@ -3,7 +3,7 @@
 import numpy as np
 import torch
 
-from psf_est.loss import GANLoss, SmoothnessLoss, CenterLoss, BoundaryLoss
+from ssp.loss import GANLoss, SmoothnessLoss, CenterLoss, BoundaryLoss
 
 
 def test_loss():

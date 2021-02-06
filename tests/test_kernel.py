@@ -3,7 +3,7 @@
 import matplotlib.pyplot as plt
 from pathlib import Path
 
-from psf_est.network import KernelNet1d
+from ssp.network import KernelNet1d
 
 
 def test_kernel():

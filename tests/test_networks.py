@@ -4,8 +4,8 @@ import torch
 from pathlib import Path
 from pytorchviz import make_dot
 
-from psf_est.network import KernelNet1d, KernelNet2d 
-from psf_est.network import LowResDiscriminator1d, LowResDiscriminator2d
+from ssp.network import KernelNet1d, KernelNet2d 
+from ssp.network import LowResDiscriminator1d, LowResDiscriminator2d
 
 
 def test_networks():

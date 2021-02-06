@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 
-from psf_est.utils import calc_fwhm
+from ssp.utils import calc_fwhm
 from lr_simu.kernel import create_gaussian_kernel
 
 

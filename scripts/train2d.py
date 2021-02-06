@@ -35,10 +35,10 @@ import warnings
 
 from sssrlib.patches import Patches, PatchesOr
 from sssrlib.transform import create_rot_flip
-from psf_est.config import Config
-from psf_est.train import TrainerHRtoLR, KernelSaver, KernelEvaluator
-from psf_est.network import KernelNet2d, LowResDiscriminator2d
-from psf_est.utils import calc_patch_size
+from ssp.config import Config
+from ssp.train import TrainerHRtoLR, KernelSaver, KernelEvaluator
+from ssp.network import KernelNet2d, LowResDiscriminator2d
+from ssp.utils import calc_patch_size
 
 from pytorch_trainer.log import DataQueue, EpochPrinter, EpochLogger
 from pytorch_trainer.save import ImageSaver

@@ -7,4 +7,4 @@ docker run --gpus device=1 --rm -v $dir:$dir \
     -v $lr_simu_dir:$lr_simu_dir \
     --user $(id -u):$(id -g) \
     -e PYTHONPATH=$dir:$lr_simu_dir -w $dir/tests -t \
-    psf-est ./test_loss.py
+    ssp ./test_loss.py
