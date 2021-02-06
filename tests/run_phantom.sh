@@ -7,16 +7,9 @@ config_dir=~/Code/shuo/utils/singleton-config
 trainer_dir=~/Code/shuo/deep-networks/pytorch-trainer
 data_dir=/data
 
-images=(/data/phantom/data/SUPERRES-ADNIPHANTOM_20200830_PHANTOM-T2-TSE-2D-CORONAL-PRE-ACQ1-2mm-gapn0p5mm_resampled.nii
-        /data/phantom/data/SUPERRES-ADNIPHANTOM_20200711_PHANTOM-T2-TSE-2D-CORONAL-PRE-ACQ1-02mm_resampled.nii
-        /data/phantom/data/SUPERRES-ADNIPHANTOM_20200830_PHANTOM-T2-TSE-2D-CORONAL-PRE-ACQ1-2mm-gap0p5mm_resampled.nii
-        /data/phantom/data/SUPERRES-ADNIPHANTOM_20200830_PHANTOM-T2-TSE-2D-CORONAL-PRE-ACQ1-2mm-gap1mm_resampled.nii
-        /data/phantom/data/SUPERRES-ADNIPHANTOM_20200830_PHANTOM-T2-TSE-2D-CORONAL-PRE-ACQ1-2mm-gap2mm_resampled.nii
-        /data/phantom/data/SUPERRES-ADNIPHANTOM_20200830_PHANTOM-T2-TSE-2D-CORONAL-PRE-ACQ1-4mm-gapn2mm_resampled.nii
+images=(/data/phantom/data/SUPERRES-ADNIPHANTOM_20200830_PHANTOM-T2-TSE-2D-CORONAL-PRE-ACQ1-4mm-gapn2mm_resampled.nii
         /data/phantom/data/SUPERRES-ADNIPHANTOM_20200830_PHANTOM-T2-TSE-2D-CORONAL-PRE-ACQ1-4mm-gapn1mm_resampled.nii
-        /data/phantom/data/SUPERRES-ADNIPHANTOM_20200711_PHANTOM-T2-TSE-2D-CORONAL-PRE-ACQ1-04mm_resampled.nii
-        /data/phantom/data/SUPERRES-ADNIPHANTOM_20200830_PHANTOM-T2-TSE-2D-CORONAL-PRE-ACQ1-4mm-gap1mm_resampled.nii
-        /data/phantom/data/SUPERRES-ADNIPHANTOM_20200830_PHANTOM-T2-TSE-2D-CORONAL-PRE-ACQ1-4mm-gap2mm_resampled.nii)
+        /data/phantom/data/SUPERRES-ADNIPHANTOM_20200711_PHANTOM-T2-TSE-2D-CORONAL-PRE-ACQ1-04mm_resampled.nii)
 
 sm=1.0
 for image in ${images[@]}; do
@@ -38,4 +31,4 @@ for image in ${images[@]}; do
         -w $ssp_dir/scripts -t \
         ssp ./train2d.py -i $image -o $outdir -l 19 \
         -sw $sm -isz 1 -bs 16 -e 30000 -w 0
-done | rush -j 2 {}
+done | rush -j 3 {}
