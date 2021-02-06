@@ -5,7 +5,6 @@ sssrlib_dir=~/Code/shuo/deep-networks/sssrlib
 proc_dir=~/Code/shuo/utils/image-processing-3d
 config_dir=~/Code/shuo/utils/singleton-config
 trainer_dir=~/Code/shuo/deep-networks/pytorch-trainer
-simu_dir=~/Code/shuo/utils/lr-simu
 data_dir=/data
 
 images=(/data/phantom/simu/SUPERRES-ADNIPHANTOM_20200711_PHANTOM-T2-TSE-3D-CORONAL-PRE-ACQ1-01mm_resampled_type-rect_fwhm-3p0_scale-0p125_len-13.nii
@@ -31,11 +30,10 @@ for image in ${images[@]}; do
         -v $sssrlib_dir:$sssrlib_dir \
         -v $proc_dir:$proc_dir \
         -v $trainer_dir:$trainer_dir \
-        -v $simu_dir:$simu_dir \
         -v $data_dir:$data_dir \
         -v $config_dir:$config_dir \
         --user $(id -u):$(id -g) \
-        -e PYTHONPATH=$ssp_dir:$sssrlib_dir:$proc_dir:$trainer_dir:$config_dir:$simu_dir \
+        -e PYTHONPATH=$ssp_dir:$sssrlib_dir:$proc_dir:$trainer_dir:$config_dir \
         -w $ssp_dir/scripts -t \
         ssp ./train2d.py -i $image -o $outdir -k $kernel -l 19 \
         -sw $sm -isz 1 -bs 16 -e 30000 -w 0
